@@ -1,14 +1,20 @@
-from ai.ollama_client import preguntar
+from core.asistente import PROVEEDORES, responder
 
 def main():
-    print("Jarvis iniciado. Escribe 'salir' para terminar.")
+    proveedor = "local"
+    print("Jarvis iniciado. Comandos: /local, /gemini, salir")
     while True:
-        texto = input("Tú: ")
+        texto = input("Tú: ").strip()
+        if not texto:
+            continue
         if texto.lower() == "salir":
             print("Jarvis: ¡Hasta luego!")
             break
-        respuesta = preguntar(texto)
-        print(f"Jarvis: {respuesta}")
+        if texto.startswith("/") and texto[1:] in PROVEEDORES:
+            proveedor = texto[1:]
+            print(f"Jarvis: Listo, ahora uso la IA '{proveedor}'.")
+            continue
+        print(f"Jarvis ({proveedor}): {responder(texto, proveedor)}")
 
 if __name__ == "__main__":
     main()
