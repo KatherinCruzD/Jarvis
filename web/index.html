@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Jarvis</title>
+  <link rel="stylesheet" href="/static/estilo.css">
+</head>
+<body>
+  <canvas id="nucleo"></canvas>
+
+  <header>
+    <span class="logo">J.A.R.V.I.S.</span>
+    <div class="controles">
+      <select id="proveedor">
+        <option value="local">IA local</option>
+        <option value="gemini">Gemini</option>
+      </select>
+      <label><input type="checkbox" id="voz" checked> Voz</label>
+    </div>
+  </header>
+
+  <aside id="atajos">
+    <button data-atajo="word">Word</button>
+    <button data-atajo="vscode">VS Code</button>
+    <button data-atajo="whatsapp">WhatsApp</button>
+    <button data-atajo="tiktok">TikTok</button>
+    <button data-atajo="gmail">Gmail</button>
+    <button data-atajo="spotify">Spotify</button>
+  </aside>
+
+  <section id="chat"></section>
+
+  <footer>
+    <input id="caja" type="text" placeholder="Escríbele a Jarvis..." autocomplete="off">
+    <button id="enviar">Enviar</button>
+  </footer>
+
+  <script src="/static/hud.js"></script>
+</body>
+</html>
