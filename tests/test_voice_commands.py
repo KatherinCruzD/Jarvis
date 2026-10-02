@@ -1290,6 +1290,55 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    async def test_tool_response_bypasses_ai_for_voice_and_chat(self):
+        for desde_voz in (True, False):
+            with self.subTest(desde_voz=desde_voz):
+                with (
+                    patch.object(
+                        servidor, "difundir", new_callable=AsyncMock
+                    ) as difundir,
+                    patch.object(
+                        servidor, "responder_en_voz", new_callable=AsyncMock
+                    ) as hablar,
+                    patch.object(
+                        servidor.herramientas, "manejar", return_value="Son las 3."
+                    ) as manejar,
+                    patch.object(servidor, "responder") as responder,
+                    patch.object(servidor, "buscar_memoria") as buscar_memoria,
+                ):
+                    await servidor.procesar("qué hora es", desde_voz=desde_voz)
+
+                manejar.assert_called_once_with("qué hora es")
+                responder.assert_not_called()
+                buscar_memoria.assert_not_called()
+                hablar.assert_awaited_once_with("Son las 3.")
+                self.assertIn(
+                    call(tipo="respuesta", texto="Son las 3."),
+                    difundir.await_args_list,
+                )
+
+    async def test_tool_password_is_shown_but_not_spoken(self):
+        secreto = "Tu contraseña nueva es ValorPrivado. Guárdala en un lugar seguro."
+        with (
+            patch.object(servidor, "difundir", new_callable=AsyncMock) as difundir,
+            patch.object(
+                servidor, "responder_en_voz", new_callable=AsyncMock
+            ) as hablar,
+            patch.object(
+                servidor.herramientas, "manejar", return_value=secreto
+            ) as manejar,
+            patch.object(servidor, "responder") as responder,
+        ):
+            await servidor.procesar("genera una contraseña")
+
+        manejar.assert_called_once_with("genera una contraseña")
+        responder.assert_not_called()
+        hablar.assert_not_awaited()
+        self.assertIn(
+            call(tipo="respuesta", texto=secreto),
+            difundir.await_args_list,
+        )
+
     async def test_text_chat_open_request_still_requires_confirmation(self):
         class FakeHud:
             def __init__(self):

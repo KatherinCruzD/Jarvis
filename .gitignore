@@ -10,3 +10,4 @@ token.json
 *.sqlite3
 .spotify_cache
 .cache
+.venv_prueba/

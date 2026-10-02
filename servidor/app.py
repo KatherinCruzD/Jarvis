@@ -37,6 +37,7 @@ from core.archivos import (
     interpretar_subida_drive,
 )
 from core.asistente import responder
+from core import herramientas
 from core.memoria import (
     buscar as buscar_memoria,
     interpretar_consulta_memoria,
@@ -200,6 +201,7 @@ async def procesar(texto, desde_voz=False):
     global _ultima_interaccion
     async with _candado_turno:
         mantener_contexto = False
+        pronunciar_respuesta = True
         if desde_voz and texto:
             await difundir(tipo="usuario", texto=texto)
         await difundir(tipo="estado", valor="pensando")
@@ -493,39 +495,49 @@ async def procesar(texto, desde_voz=False):
                         partial(subir_archivo, ruta),
                     )
             else:
-                ahora = time.monotonic()
-                if ahora - _ultima_interaccion > SEGUNDOS_CONTEXTO:
-                    _historial.clear()
-                historial = _historial[-8:]
-                _historial.append({"role": "user", "content": texto})
-                contexto = []
-                if ajustes["proveedor"] == "local":
-                    try:
-                        contexto = await asyncio.to_thread(buscar_memoria, texto)
-                    except sqlite3.Error:
-                        logging.exception("No se pudieron buscar recuerdos locales.")
-                if contexto:
-                    respuesta = await asyncio.to_thread(
-                        responder,
-                        texto,
-                        ajustes["proveedor"],
-                        historial,
-                        contexto,
+                respuesta_herramienta = await asyncio.to_thread(
+                    herramientas.manejar, texto
+                )
+                if respuesta_herramienta is not None:
+                    respuesta = respuesta_herramienta
+                    pronunciar_respuesta = (
+                        "contraseña nueva" not in respuesta.casefold()
                     )
                 else:
-                    respuesta = await asyncio.to_thread(
-                        responder,
-                        texto,
-                        ajustes["proveedor"],
-                        historial,
-                    )
-                _historial.append({"role": "assistant", "content": respuesta})
-                del _historial[:-8]
-                mantener_contexto = True
+                    ahora = time.monotonic()
+                    if ahora - _ultima_interaccion > SEGUNDOS_CONTEXTO:
+                        _historial.clear()
+                    historial = _historial[-8:]
+                    _historial.append({"role": "user", "content": texto})
+                    contexto = []
+                    if ajustes["proveedor"] == "local":
+                        try:
+                            contexto = await asyncio.to_thread(buscar_memoria, texto)
+                        except sqlite3.Error:
+                            logging.exception("No se pudieron buscar recuerdos locales.")
+                    if contexto:
+                        respuesta = await asyncio.to_thread(
+                            responder,
+                            texto,
+                            ajustes["proveedor"],
+                            historial,
+                            contexto,
+                        )
+                    else:
+                        respuesta = await asyncio.to_thread(
+                            responder,
+                            texto,
+                            ajustes["proveedor"],
+                            historial,
+                        )
+                    _historial.append({"role": "assistant", "content": respuesta})
+                    del _historial[:-8]
+                    mantener_contexto = True
 
         await difundir(tipo="respuesta", texto=respuesta)
         try:
-            await responder_en_voz(respuesta)
+            if pronunciar_respuesta:
+                await responder_en_voz(respuesta)
         finally:
             if mantener_contexto:
                 _ultima_interaccion = time.monotonic()
