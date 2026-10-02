@@ -1,3 +1,12 @@
 .venv/
 __pycache__/
 .env
+voz/mi_voz.npy
+secrets/google_oauth_client.json
+credentials.json
+token.json
+*.db
+*.sqlite
+*.sqlite3
+.spotify_cache
+.cache

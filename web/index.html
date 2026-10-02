@@ -2,38 +2,183 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Jarvis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050b12">
+  <title>J.A.R.V.I.S. | Interfaz de control</title>
   <link rel="stylesheet" href="/static/estilo.css">
 </head>
-<body>
-  <canvas id="nucleo"></canvas>
+<body data-estado="reposo">
+  <canvas id="nucleo" aria-hidden="true"></canvas>
 
-  <header>
-    <span class="logo">J.A.R.V.I.S.</span>
+  <header class="barra-superior">
+    <div class="marca">
+      <span class="marca-simbolo" aria-hidden="true">J</span>
+      <div>
+        <p class="marca-titulo">J.A.R.V.I.S.</p>
+        <p class="marca-subtitulo">ASISTENTE PERSONAL</p>
+      </div>
+    </div>
+
+    <div class="sistema">
+      <span class="indicador-conexion" id="conexion-indicador"></span>
+      <span id="conexion-texto">CONECTANDO</span>
+      <span class="separador" aria-hidden="true"></span>
+      <span>MICRÓFONO <strong id="estado-microfono">INICIANDO</strong></span>
+      <span class="separador" aria-hidden="true"></span>
+      <time id="reloj">--:--:--</time>
+    </div>
+
     <div class="controles">
-      <select id="proveedor">
-        <option value="local">IA local</option>
-        <option value="gemini">Gemini</option>
+      <label class="control-etiqueta" for="proveedor">IA</label>
+      <select id="proveedor" aria-label="Proveedor de inteligencia artificial">
+        <option value="local">LOCAL</option>
+        <option value="gemini">GEMINI</option>
       </select>
-      <label><input type="checkbox" id="voz" checked> Voz</label>
+      <label class="interruptor" for="voz">
+        <input type="checkbox" id="voz" checked>
+        <span class="interruptor-pista" aria-hidden="true"></span>
+        <span>TTS</span>
+      </label>
     </div>
   </header>
 
-  <aside id="atajos">
-    <button data-atajo="word">Word</button>
-    <button data-atajo="vscode">VS Code</button>
-    <button data-atajo="whatsapp">WhatsApp</button>
-    <button data-atajo="tiktok">TikTok</button>
-    <button data-atajo="gmail">Gmail</button>
-    <button data-atajo="spotify">Spotify</button>
-  </aside>
+  <main class="paneles">
+    <aside id="atajos" aria-label="Aplicaciones y accesos">
+      <div class="seccion-cabecera">
+        <span class="seccion-indice">01 / ACCESO</span>
+        <span class="seccion-linea" aria-hidden="true"></span>
+      </div>
+      <p class="seccion-titulo">Sistemas</p>
+      <div class="lista-atajos">
+        <button class="atajo" data-atajo="word" type="button">
+          <span class="atajo-icono word" aria-hidden="true">W</span>
+          <span class="atajo-texto"><strong>Word</strong><small>DOCUMENTOS</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+        <button class="atajo" data-atajo="vscode" type="button">
+          <span class="atajo-icono vscode" aria-hidden="true">&lt;/&gt;</span>
+          <span class="atajo-texto"><strong>VS Code</strong><small>DESARROLLO</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+        <button class="atajo" data-atajo="spotify" type="button">
+          <span class="atajo-icono spotify" aria-hidden="true">S</span>
+          <span class="atajo-texto"><strong>Spotify</strong><small>AUDIO</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+        <button class="atajo" data-atajo="roblox" type="button">
+          <span class="atajo-icono roblox" aria-hidden="true">R</span>
+          <span class="atajo-texto"><strong>Roblox</strong><small>JUEGOS</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+        <button class="atajo" data-atajo="whatsapp" type="button">
+          <span class="atajo-icono whatsapp" aria-hidden="true">W</span>
+          <span class="atajo-texto"><strong>WhatsApp</strong><small>MENSAJES</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+        <button class="atajo" data-atajo="tiktok" type="button">
+          <span class="atajo-icono tiktok" aria-hidden="true">T</span>
+          <span class="atajo-texto"><strong>TikTok</strong><small>VIDEO</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+        <button class="atajo" data-atajo="gmail" type="button">
+          <span class="atajo-icono gmail" aria-hidden="true">M</span>
+          <span class="atajo-texto"><strong>Gmail</strong><small>CORREO</small></span>
+          <span class="atajo-flecha" aria-hidden="true">↗</span>
+        </button>
+      </div>
+      <section class="tarjeta-audio" aria-label="Estado del canal de voz">
+        <div class="tarjeta-audio-cabecera">
+          <span class="seccion-indice">CANAL DE VOZ</span>
+          <span class="audio-vivo" aria-hidden="true"></span>
+        </div>
+        <strong id="actividad-voz">ESPERANDO ACTIVACIÓN</strong>
+        <div class="onda-audio" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <span class="tarjeta-audio-pie">MICRÓFONO LOCAL · CONTROL DE VOZ</span>
+      </section>
+      <div class="privacidad">
+        <span class="privacidad-punto" aria-hidden="true"></span>
+        <span>ACCIONES BAJO CONFIRMACIÓN</span>
+      </div>
+    </aside>
 
-  <section id="chat"></section>
+    <section id="escenario" aria-label="Núcleo de Jarvis">
+      <div class="plataforma-3d" aria-hidden="true">
+        <span class="plataforma-anillo anillo-exterior"></span>
+        <span class="plataforma-anillo anillo-medio"></span>
+        <span class="plataforma-anillo anillo-interior"></span>
+        <span class="plataforma-haz"></span>
+        <span class="plataforma-base"></span>
+      </div>
+      <div class="lectura-escena lectura-superior" aria-hidden="true">
+        <span>NÚCLEO HOLOGRÁFICO</span><i></i><b>3D / 01</b>
+      </div>
+      <div class="anotacion anotacion-superior">
+        <span class="anotacion-punto" aria-hidden="true"></span>
+        <span>INTERFAZ NEURAL</span>
+        <span class="anotacion-regla" aria-hidden="true"></span>
+      </div>
+      <div class="nucleo-anotacion">
+        <span class="nucleo-anotacion-etiqueta">NÚCLEO DE ASISTENCIA</span>
+        <strong id="estado">SISTEMAS EN ESPERA</strong>
+        <span class="estado-onda" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+      <div class="anotacion anotacion-inferior">
+        <span>J.A.R.V.I.S. <b>///</b> CONEXIÓN LOCAL</span>
+        <span class="anotacion-regla" aria-hidden="true"></span>
+        <span id="latencia">CANAL cifrado</span>
+      </div>
+    </section>
 
-  <footer>
-    <input id="caja" type="text" placeholder="Escríbele a Jarvis..." autocomplete="off">
-    <button id="enviar">Enviar</button>
+    <section id="panel-chat" aria-label="Conversación con Jarvis">
+      <div class="chat-cabecera">
+        <div>
+          <span class="seccion-indice">02 / COMUNICACIÓN</span>
+          <h1>Canal de voz</h1>
+        </div>
+        <button
+          id="detener-voz"
+          class="boton-detener-voz"
+          type="button"
+          aria-label="Detener ahora la voz de Jarvis. También puedes presionar F8."
+          title="Detener la voz de Jarvis (F8)"
+        >
+          <span aria-hidden="true">■</span> DETENER <kbd>F8</kbd>
+        </button>
+      </div>
+      <div id="chat" role="log" aria-live="polite" aria-relevant="additions"></div>
+      <form id="formulario-chat" autocomplete="off">
+        <label for="caja" class="sr-only">Mensaje para Jarvis</label>
+        <input id="caja" type="text" placeholder="Escribe un mensaje..." autocomplete="off">
+        <button id="enviar" type="submit" aria-label="Enviar mensaje">
+          <span aria-hidden="true">↑</span>
+        </button>
+      </form>
+      <p class="chat-pie"><span class="tecla">ENTER</span> para enviar <span>·</span> <span><span class="tecla">F8</span> o DETENER para cortar la voz</span></p>
+    </section>
+  </main>
+
+  <footer class="barra-inferior">
+    <span><i class="barra-punto" aria-hidden="true"></i> PRIVADO POR DISEÑO</span>
+    <span>JARVIS <b>·</b> SISTEMA PERSONAL</span>
+    <span>TTS <strong id="estado-audio">ACTIVO</strong></span>
   </footer>
+
+  <dialog id="dialogo-confirmacion" aria-labelledby="confirmacion-titulo">
+    <form method="dialog" class="confirmacion">
+      <span class="confirmacion-icono" aria-hidden="true">!</span>
+      <p class="seccion-indice">AUTORIZACIÓN REQUERIDA</p>
+      <h2 id="confirmacion-titulo">Confirmar acción</h2>
+      <p id="confirmacion-detalle">Jarvis solicita permiso para una acción.</p>
+      <p class="confirmacion-expira">Esta solicitud vence en 30 segundos.</p>
+      <div class="confirmacion-botones">
+        <button id="cancelar-accion" class="boton-secundario" type="button">Cancelar</button>
+        <button id="confirmar-accion" class="boton-confirmar" type="button">Autorizar acción</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="/static/hud.js"></script>
 </body>
