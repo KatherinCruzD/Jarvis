@@ -4,7 +4,14 @@ Asistente personal local en Python, con interfaz web servida por FastAPI y comun
 
 ## Ejecutar
 
-1. Activa el entorno virtual e instala `requirements.txt`.
+1. Activa el entorno virtual (Python 3.12) e instala las dependencias:
+
+```
+   pip install -r requirements.txt
+   pip install resemblyzer==0.1.4 --no-deps
+```
+
+   Resemblyzer se instala aparte con `--no-deps` porque, en Windows, una de sus dependencias intenta compilarse y suele fallar; las que sí necesita ya están en `requirements.txt`. El archivo `requirements-lock.txt` guarda las versiones exactas con las que Jarvis funcionó y sirve solo como referencia, no para instalar.
 2. Registra una muestra de voz con `python registrar_voz.py`.
 3. Inicia Jarvis con `python main.py`; el servidor abre el HUD en `127.0.0.1:8000`.
 4. El proveedor local requiere Ollama con `llama3.2:3b`. Gemini necesita `GEMINI_API_KEY` en `.env`.
