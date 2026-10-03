@@ -1376,24 +1376,19 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
             difundir.await_args_list,
         )
 
-    async def test_text_chat_open_request_still_requires_confirmation(self):
-        class FakeHud:
-            def __init__(self):
-                self.send_text = AsyncMock()
-
-        hud = FakeHud()
-        servidor.conexiones.add(hud)
+    async def test_text_chat_open_request_runs_without_confirmation(self):
         with (
-            patch.object(servidor, "difundir", new_callable=AsyncMock),
+            patch.object(servidor, "difundir", new_callable=AsyncMock) as difundir,
             patch.object(servidor, "responder_en_voz", new_callable=AsyncMock),
-            patch.object(servidor, "ejecutar_atajo") as ejecutar,
+            patch.object(servidor, "ejecutar_atajo", return_value="Abriendo Microsoft Word.") as ejecutar,
         ):
-            await servidor.procesar("abre Word", desde_voz=False)
+            await servidor.procesar("abre Word", desde_voz=False, desde_hud=True)
 
-        ejecutar.assert_not_called()
-        evento = json.loads(hud.send_text.await_args.args[0])
-        self.assertEqual(evento["tipo"], "confirmacion_requerida")
-        self.assertEqual(servidor._pendientes[evento["id"]][2], hud)
+        ejecutar.assert_called_once_with("word")
+        self.assertIn(
+            call(tipo="respuesta", texto="Abriendo Microsoft Word."),
+            difundir.await_args_list,
+        )
 
     async def test_authorizing_whatsapp_runs_approved_link_action(self):
         class FakeHud:
@@ -1509,11 +1504,26 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
         bateria = SimpleNamespace(percent=82)
         temperatura = SimpleNamespace(current=51.6)
         with (
+            patch.object(servidor, "_ultima_red", None),
+            patch.object(servidor.time, "monotonic", side_effect=[100, 105]),
             patch.object(servidor.psutil, "cpu_percent", return_value=23),
             patch.object(
                 servidor.psutil,
                 "virtual_memory",
                 return_value=SimpleNamespace(percent=47),
+            ),
+            patch.object(
+                servidor.psutil,
+                "disk_usage",
+                return_value=SimpleNamespace(percent=43),
+            ),
+            patch.object(
+                servidor.psutil,
+                "net_io_counters",
+                side_effect=[
+                    SimpleNamespace(bytes_sent=1_000_000, bytes_recv=2_000_000),
+                    SimpleNamespace(bytes_sent=31_000_000, bytes_recv=20_000_000),
+                ],
             ),
             patch.object(servidor.psutil, "sensors_battery", return_value=bateria),
             patch.object(
@@ -1524,11 +1534,20 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             datos = servidor.obtener_telemetria()
+            datos_con_red = servidor.obtener_telemetria()
 
         self.assertEqual(
             datos,
-            {"cpu": 23, "ram": 47, "bateria": 82, "temperatura": 52},
+            {
+                "cpu": 23,
+                "ram": 47,
+                "disco": 43,
+                "bateria": 82,
+                "temperatura": 52,
+                "red": None,
+            },
         )
+        self.assertEqual(datos_con_red["red"], 9.6)
 
     async def test_sensitive_action_waits_for_a_connected_hud(self):
         servidor.conexiones.clear()
@@ -1540,13 +1559,12 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Conecta el HUD", respuesta)
         self.assertEqual(servidor._pendientes, {})
 
-    async def test_only_the_requesting_hud_session_can_authorize(self):
+    async def test_hud_app_shortcut_opens_without_confirmation(self):
         class FakeSocket:
             def __init__(self, incoming=()):
                 self.headers = {"origin": "http://127.0.0.1:8000"}
                 self.incoming = asyncio.Queue()
                 self.sent = []
-                self.prompt_received = asyncio.Event()
                 self.accepted = False
                 for message in incoming:
                     self.incoming.put_nowait(message)
@@ -1560,8 +1578,6 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
             async def send_text(self, text):
                 evento = json.loads(text)
                 self.sent.append(evento)
-                if evento.get("tipo") == "confirmacion_requerida":
-                    self.prompt_received.set()
 
             async def receive_text(self):
                 mensaje = await self.incoming.get()
@@ -1570,46 +1586,52 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
                 return mensaje
 
         propietario = FakeSocket(
-            [json.dumps({"tipo": "atajo", "valor": "word"})]
+            [
+                json.dumps({"tipo": "atajo", "valor": "word"}),
+                None,
+            ]
         )
         with patch.object(
             servidor, "ejecutar_atajo", return_value="Abriendo Microsoft Word."
         ) as ejecutar:
-            tarea_propietario = asyncio.create_task(servidor.conexion(propietario))
-            await asyncio.wait_for(propietario.prompt_received.wait(), timeout=1)
-        evento = next(
-            mensaje
-            for mensaje in propietario.sent
-            if mensaje["tipo"] == "confirmacion_requerida"
-        )
+            await servidor.conexion(propietario)
 
-        intruso = FakeSocket(
-            [
-                json.dumps(
-                    {"tipo": "confirmar_atajo", "id": evento["id"]}
-                ),
-                None,
-            ]
-        )
-        await servidor.conexion(intruso)
-        ejecutar.assert_not_called()
-
-        propietario.incoming.put_nowait(
-            json.dumps(
-                {"tipo": "confirmar_atajo", "id": evento["id"]}
-            )
-        )
-        propietario.incoming.put_nowait(None)
-        await tarea_propietario
         ejecutar.assert_called_once_with("word")
-
-        self.assertTrue(
-            any(
-                mensaje.get("texto")
-                == "Esta solicitud pertenece a otra sesión del HUD."
-                for mensaje in intruso.sent
-            )
+        self.assertIn(
+            {"tipo": "respuesta", "texto": "Abriendo Microsoft Word."},
+            propietario.sent,
         )
+        self.assertFalse(
+            any(mensaje["tipo"] == "confirmacion_requerida" for mensaje in propietario.sent)
+        )
+
+    async def test_hud_text_commands_use_direct_app_launch_path(self):
+        class FakeSocket:
+            def __init__(self):
+                self.headers = {"origin": "http://127.0.0.1:8000"}
+                self.incoming = asyncio.Queue()
+                self.incoming.put_nowait(json.dumps({"tipo": "texto", "texto": "abre Word"}))
+                self.incoming.put_nowait(None)
+
+            async def accept(self):
+                pass
+
+            async def close(self, **_):
+                pass
+
+            async def send_text(self, _):
+                pass
+
+            async def receive_text(self):
+                message = await self.incoming.get()
+                if message is None:
+                    raise WebSocketDisconnect(code=1000)
+                return message
+
+        with patch.object(servidor, "procesar", new_callable=AsyncMock) as procesar:
+            await servidor.conexion(FakeSocket())
+
+        procesar.assert_awaited_once_with("abre Word", desde_hud=True)
 
     async def test_conversation_history_is_reused_during_active_window(self):
         with (

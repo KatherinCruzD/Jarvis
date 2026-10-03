@@ -86,6 +86,8 @@ _historial: list[dict[str, str]] = []
 _ultima_interaccion = 0.0
 _candado_turno = asyncio.Lock()
 _candado_turnos_voz = threading.Lock()
+_candado_telemetria = threading.Lock()
+_ultima_red: tuple[int, float] | None = None
 _turnos_voz_pendientes = 0
 
 
@@ -216,7 +218,7 @@ async def solicitar_aprobacion(
     return f"{detalle}. Conecta el HUD para autorizar la solicitud."
 
 
-async def procesar(texto, desde_voz=False):
+async def procesar(texto, desde_voz=False, desde_hud=False):
     global _ultima_interaccion
     async with _candado_turno:
         mantener_contexto = False
@@ -399,7 +401,7 @@ async def procesar(texto, desde_voz=False):
         else:
             atajo = interpretar_atajo(texto)
             if atajo is not None:
-                if desde_voz:
+                if desde_voz or desde_hud:
                     try:
                         respuesta = await asyncio.to_thread(ejecutar_atajo, atajo)
                     except FileNotFoundError as error:
@@ -710,7 +712,8 @@ app.mount("/static", StaticFiles(directory=CARPETA_WEB), name="static")
 
 
 @app.get("/api/telemetria")
-def obtener_telemetria() -> dict[str, int | None]:
+def obtener_telemetria() -> dict[str, int | float | None]:
+    global _ultima_red
     bateria = psutil.sensors_battery()
     lectura_temperatura = getattr(psutil, "sensors_temperatures", None)
     temperatura = None
@@ -728,11 +731,26 @@ def obtener_telemetria() -> dict[str, int | None]:
         if lecturas:
             temperatura = round(max(lecturas))
 
+    disco = psutil.disk_usage(Path.home().anchor).percent
+    contadores_red = psutil.net_io_counters()
+    bytes_red = contadores_red.bytes_sent + contadores_red.bytes_recv
+    ahora = time.monotonic()
+    with _candado_telemetria:
+        red = None
+        if _ultima_red is not None:
+            bytes_anteriores, tiempo_anterior = _ultima_red
+            intervalo = ahora - tiempo_anterior
+            if intervalo > 0:
+                red = max(0.0, (bytes_red - bytes_anteriores) / intervalo / 1_000_000)
+        _ultima_red = (bytes_red, ahora)
+
     return {
         "cpu": round(psutil.cpu_percent(interval=None)),
         "ram": round(psutil.virtual_memory().percent),
+        "disco": round(disco),
         "bateria": round(bateria.percent) if bateria is not None else None,
         "temperatura": temperatura,
+        "red": round(red, 2) if red is not None else None,
     }
 
 
@@ -797,14 +815,32 @@ async def conexion(ws: WebSocket):
                     )
             elif tipo == "atajo":
                 nombre = mensaje.get("valor")
-                if describir_atajo(nombre) is None:
+                if not isinstance(nombre, str) or describir_atajo(nombre) is None:
                     await ws.send_text(
                         json.dumps(
                             {"tipo": "aviso", "texto": "Ese acceso no está permitido."}
                         )
                     )
                     continue
-                await solicitar_confirmacion(nombre, ws)
+                try:
+                    respuesta = await asyncio.to_thread(ejecutar_atajo, nombre)
+                except FileNotFoundError as error:
+                    respuesta = str(error)
+                except (OSError, RuntimeError):
+                    logging.exception(
+                        "No se pudo abrir la aplicación solicitada desde el HUD: %s",
+                        nombre,
+                    )
+                    respuesta = (
+                        f"No pude abrir {describir_atajo(nombre)}. "
+                        "Comprueba que esté instalada."
+                    )
+                await ws.send_text(
+                    json.dumps(
+                        {"tipo": "respuesta", "texto": respuesta},
+                        ensure_ascii=False,
+                    )
+                )
             elif tipo == "confirmar_atajo":
                 identificador = mensaje.get("id")
                 if not isinstance(identificador, str):
@@ -869,7 +905,7 @@ async def conexion(ws: WebSocket):
             elif tipo == "texto":
                 texto = mensaje.get("texto")
                 if isinstance(texto, str):
-                    await procesar(texto)
+                    await procesar(texto, desde_hud=True)
                 else:
                     await ws.send_text(
                         json.dumps(

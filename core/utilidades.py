@@ -152,6 +152,46 @@ def volumen(accion: str, pasos: int = 5) -> str:
     }[accion]
 
 
+def brillo(accion: str) -> str:
+    if os.name != "nt":
+        return "El control de brillo solo está disponible en Windows."
+    ajuste = 10 if accion == "subir" else -10
+    comando = (
+        "$monitores = Get-CimInstance -Namespace root/WMI "
+        "-ClassName WmiMonitorBrightness; "
+        "if (-not $monitores) { throw 'No se encontró un monitor con brillo ajustable.' }; "
+        f"$ajuste = {ajuste}; "
+        "foreach ($monitor in $monitores) { "
+        "$nivel = [Math]::Max(0, [Math]::Min(100, "
+        "[int]$monitor.CurrentBrightness + $ajuste)); "
+        "$metodo = Get-CimInstance -Namespace root/WMI "
+        "-ClassName WmiMonitorBrightnessMethods | "
+        "Where-Object InstanceName -eq $monitor.InstanceName; "
+        "if (-not $metodo) { throw 'No se encontró el control de brillo del monitor.' }; "
+        "Invoke-CimMethod -InputObject $metodo -MethodName WmiSetBrightness "
+        "-Arguments @{ Timeout = 0; Brightness = $nivel } | Out-Null }; "
+        "'Brillo ajustado a ' + $nivel + '%.'"
+    )
+    try:
+        resultado = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", comando],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except FileNotFoundError:
+        return "No encontré PowerShell para cambiar el brillo."
+    except subprocess.TimeoutExpired:
+        return "El control de brillo tardó demasiado y se canceló."
+    except OSError as error:
+        return f"No pude iniciar el control de brillo: {error}"
+    except subprocess.CalledProcessError as error:
+        detalle = (error.stderr or "").strip()
+        return f"No pude cambiar el brillo: {detalle or 'el monitor no admite este control.'}"
+    return resultado.stdout.strip() or "Se actualizó el brillo del monitor."
+
+
 def musica(accion: str) -> str:
     _pulsar(_MULTIMEDIA[accion])
     return {
@@ -326,6 +366,13 @@ def manejar(texto: str):
             return volumen("bajar")
         if re.search(r"silencia|mute|quita el sonido", t):
             return volumen("silenciar")
+
+    if "brillo" in t:
+        if re.search(r"sube|aumenta|más alto", t):
+            return brillo("subir")
+        if re.search(r"baja|disminuye|más bajo", t):
+            return brillo("bajar")
+        return "Indica si quieres subir o bajar el brillo."
 
     tarea = re.search(
         r"\b(?:agrega|añade|crea|pon)\s+(?:una\s+)?tarea\s*(?:de|para|que|:)?\s*(.+)$",

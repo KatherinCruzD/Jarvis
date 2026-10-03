@@ -3,293 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#050b12">
-  <title>J.A.R.V.I.S. | Interfaz de control</title>
-  <link rel="stylesheet" href="/static/estilo.css">
+  <meta name="theme-color" content="#030817">
+  <title>JARVIS · Panel personal</title>
+  <script>
+    const RUTA = location.protocol === "file:" ? "" : "/static/";
+    document.write(`<link rel="stylesheet" href="${RUTA}estilos.css">`);
+  </script>
 </head>
-<body data-estado="reposo">
-  <canvas id="nucleo" aria-hidden="true"></canvas>
-
-  <header class="barra-superior">
-    <div class="marca">
-      <span class="marca-simbolo" aria-hidden="true">J</span>
-      <div>
-        <p class="marca-titulo">J.A.R.V.I.S.</p>
-        <p class="marca-subtitulo">ASISTENTE PERSONAL</p>
-      </div>
-    </div>
-
-    <div class="sistema">
-      <span class="indicador-conexion" id="conexion-indicador"></span>
-      <span id="conexion-texto">CONECTANDO</span>
-      <span class="separador" aria-hidden="true"></span>
-      <span>MICRÓFONO <strong id="estado-microfono">INICIANDO</strong></span>
-      <span class="separador" aria-hidden="true"></span>
-      <time id="reloj">--:--:--</time>
-    </div>
-
-    <div class="controles">
-      <label class="control-etiqueta" for="proveedor">IA</label>
-      <select id="proveedor" aria-label="Proveedor de inteligencia artificial">
-        <option value="local">LOCAL</option>
-        <option value="gemini">GEMINI</option>
-      </select>
-      <label class="interruptor" for="voz">
-        <input type="checkbox" id="voz" checked>
-        <span class="interruptor-pista" aria-hidden="true"></span>
-        <span>TTS</span>
-      </label>
-    </div>
+<body data-e="reposo">
+  <header class="top">
+    <span class="mk">✳</span>
+    <div><div class="logo">JARVIS</div><div class="sub">Tu asistente personal</div></div>
+    <div class="msg">Siempre aquí para ti <span>♥</span></div>
+    <label class="f tts" style="align-items:center" title="Activar o silenciar las respuestas habladas de Jarvis"><input type="checkbox" id="voz" checked style="flex:none;width:1.1rem;height:1.1rem"> Respuesta hablada</label>
+    <select id="prov" aria-label="Inteligencia"><option value="local">IA local</option><option value="gemini">Gemini</option></select>
+    <span class="on" id="on">Conectando…</span>
+    <span class="on" id="mic-status" aria-live="polite">Esperando conexión con Jarvis…</span>
+    <b class="rel" id="hora">--:--</b>
   </header>
 
-  <section class="telemetria" aria-label="Telemetría del computador">
-    <span class="telemetria-titulo">
-      <i aria-hidden="true"></i><strong id="telemetria-servidor">JARVIS ONLINE</strong>
-    </span>
-    <span class="telemetria-dato">CPU <strong id="telemetria-cpu">--</strong></span>
-    <span class="telemetria-dato">RAM <strong id="telemetria-ram">--</strong></span>
-    <span class="telemetria-dato">BATERÍA <strong id="telemetria-bateria">--</strong></span>
-    <span class="telemetria-dato">TEMP. PC <strong id="telemetria-temperatura">N/D</strong></span>
-    <span class="telemetria-dato">RED <strong id="telemetria-red">COMPROBANDO</strong></span>
-    <time class="telemetria-fecha" id="fecha">--</time>
+  <section class="col" aria-label="Sistema">
+    <article class="card">
+      <h2>Rendimiento del sistema</h2>
+      <div class="gau">
+        <div class="r" id="rc"><i><b>0%</b></i>CPU</div><div class="r" id="rr"><i><b>0%</b></i>RAM</div>
+        <div class="r" id="rd"><i><b>0%</b></i>Disco</div><div class="r" id="rb"><i><b>–</b></i>Batería</div>
+      </div>
+      <canvas id="spk"></canvas>
+      <div class="mini"><span>Temp. CPU: <b id="tmp">–</b></span><span>Red: <b id="red">–</b></span></div>
+    </article>
+    <article class="card"><h2>Música</h2><div class="mini" id="mus" style="margin-bottom:.3rem">Sin reproducción detectada</div><div class="pl"><button data-t="canción anterior" aria-label="Anterior">⏮</button><button data-t="pausa la música" aria-label="Pausa">⏯</button><button data-t="siguiente canción" aria-label="Siguiente">⏭</button></div></article>
+    <article class="card"><h2>Aplicaciones rápidas</h2><div class="g g4" id="apps"></div></article>
+    <article class="card"><h2>Notas</h2><textarea id="notas" placeholder="No olvides…"></textarea></article>
   </section>
 
-  <main class="paneles">
-    <aside id="atajos" aria-label="Aplicaciones y accesos">
-      <div class="seccion-cabecera">
-        <span class="seccion-indice">01 / ACCESO</span>
-        <span class="seccion-linea" aria-hidden="true"></span>
-      </div>
-      <section class="widget widget-rendimiento">
-        <div class="widget-titulo"><span>RENDIMIENTO DEL SISTEMA</span><i>LIVE</i></div>
-        <div class="medidores">
-          <div class="medidor">
-            <div class="medidor-circulo" id="medidor-cpu"><strong id="cpu-panel">--%</strong></div>
-            <span>CPU</span>
-          </div>
-          <div class="medidor">
-            <div class="medidor-circulo" id="medidor-ram"><strong id="ram-panel">--%</strong></div>
-            <span>RAM</span>
-          </div>
-          <div class="medidor">
-            <div class="medidor-circulo medidor-bateria" id="medidor-bateria"><strong id="bateria-panel">--%</strong></div>
-            <span>BATERÍA</span>
-          </div>
-        </div>
-      </section>
-      <p class="seccion-titulo">Aplicaciones</p>
-      <div class="lista-atajos">
-        <button class="atajo" data-atajo="word" type="button">
-          <span class="atajo-icono word" aria-hidden="true">W</span>
-          <span class="atajo-texto"><strong>Word</strong><small>DOCUMENTOS</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-        <button class="atajo" data-atajo="vscode" type="button">
-          <span class="atajo-icono vscode" aria-hidden="true">&lt;/&gt;</span>
-          <span class="atajo-texto"><strong>VS Code</strong><small>DESARROLLO</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-        <button class="atajo" data-atajo="spotify" type="button">
-          <span class="atajo-icono spotify" aria-hidden="true">S</span>
-          <span class="atajo-texto"><strong>Spotify</strong><small>AUDIO</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-        <button class="atajo" data-atajo="roblox" type="button">
-          <span class="atajo-icono roblox" aria-hidden="true">R</span>
-          <span class="atajo-texto"><strong>Roblox</strong><small>JUEGOS</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-        <button class="atajo" data-atajo="whatsapp" type="button">
-          <span class="atajo-icono whatsapp" aria-hidden="true">W</span>
-          <span class="atajo-texto"><strong>WhatsApp</strong><small>MENSAJES</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-        <button class="atajo" data-atajo="tiktok" type="button">
-          <span class="atajo-icono tiktok" aria-hidden="true">T</span>
-          <span class="atajo-texto"><strong>TikTok</strong><small>VIDEO</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-        <button class="atajo" data-atajo="gmail" type="button">
-          <span class="atajo-icono gmail" aria-hidden="true">M</span>
-          <span class="atajo-texto"><strong>Gmail</strong><small>CORREO</small></span>
-          <span class="atajo-flecha" aria-hidden="true">↗</span>
-        </button>
-      </div>
-      <section class="widget widget-musica">
-        <div class="widget-titulo"><span>CONTROL DE MÚSICA</span><i>PC</i></div>
-        <div class="controles-musica">
-          <button type="button" data-musica="anterior" aria-label="Canción anterior">|◀</button>
-          <button type="button" data-musica="pausa" aria-label="Pausar o reanudar música">Ⅱ</button>
-          <button type="button" data-musica="siguiente" aria-label="Siguiente canción">▶|</button>
-        </div>
-        <p class="widget-ayuda">Control multimedia del reproductor activo.</p>
-      </section>
-      <section class="widget widget-notas">
-        <div class="widget-titulo"><label for="bloc-notas">BLOC DE NOTAS</label><i>LOCAL</i></div>
-        <textarea id="bloc-notas" maxlength="5000" placeholder="Escribe una nota local..."></textarea>
-        <span id="estado-notas" class="widget-ayuda">Solo este navegador; no se cifra ni sincroniza.</span>
-      </section>
-      <section class="tarjeta-audio" aria-label="Estado del canal de voz">
-        <div class="tarjeta-audio-cabecera">
-          <span class="seccion-indice">CANAL DE VOZ</span>
-          <span class="audio-vivo" aria-hidden="true"></span>
-        </div>
-        <strong id="actividad-voz">ESPERANDO ACTIVACIÓN</strong>
-        <div class="onda-audio" aria-hidden="true">
-          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-        </div>
-        <span class="tarjeta-audio-pie">MICRÓFONO LOCAL · CONTROL DE VOZ</span>
-      </section>
-      <div class="privacidad">
-        <span class="privacidad-punto" aria-hidden="true"></span>
-        <span>ACCIONES BAJO CONFIRMACIÓN</span>
-      </div>
-    </aside>
-
-    <section id="escenario" aria-label="Núcleo de Jarvis">
-      <div class="plataforma-3d" aria-hidden="true">
-        <span class="plataforma-anillo anillo-exterior"></span>
-        <span class="plataforma-anillo anillo-medio"></span>
-        <span class="plataforma-anillo anillo-interior"></span>
-        <span class="plataforma-haz"></span>
-        <span class="plataforma-base"></span>
-      </div>
-      <div class="lectura-escena lectura-superior" aria-hidden="true">
-        <span>NÚCLEO HOLOGRÁFICO</span><i></i><b>3D / 01</b>
-      </div>
-      <div class="anotacion anotacion-superior">
-        <span class="anotacion-punto" aria-hidden="true"></span>
-        <span>INTERFAZ NEURAL</span>
-        <span class="anotacion-regla" aria-hidden="true"></span>
-      </div>
-      <div class="nucleo-anotacion">
-        <span class="nucleo-anotacion-etiqueta">NÚCLEO DE ASISTENCIA</span>
-        <strong id="estado">SISTEMAS EN ESPERA</strong>
-        <span class="estado-onda" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-      </div>
-      <div class="anotacion anotacion-inferior">
-        <span>J.A.R.V.I.S. <b>///</b> CONEXIÓN LOCAL</span>
-        <span class="anotacion-regla" aria-hidden="true"></span>
-        <span id="latencia">CANAL cifrado</span>
-      </div>
-      <nav class="modos" aria-label="Modos de Jarvis">
-        <button class="modo modo-escucha activo" data-modo="escucha" type="button">
-          <span aria-hidden="true">●</span> MODO ESCUCHA
-        </button>
-        <button class="modo modo-conversacion" data-modo="conversacion" type="button">
-          <span aria-hidden="true">◉</span> CONVERSACIÓN
-        </button>
-        <button class="modo modo-privado" data-modo="privado" type="button">
-          <span aria-hidden="true">◆</span> PRIVADO
-        </button>
-      </nav>
-    </section>
-
-    <aside id="panel-widgets" aria-label="Widgets de Jarvis">
-      <section class="widget tarjeta-buscador">
-        <div class="widget-titulo"><span>BUSCADOR INTEGRADO</span><i>01</i></div>
-        <form id="formulario-buscador" class="formulario-widget">
-          <label class="sr-only" for="buscador-integrado">Buscar en Internet o archivos</label>
-          <select id="tipo-busqueda" aria-label="Tipo de búsqueda">
-            <option value="web">WEB</option>
-            <option value="archivos">ARCHIVOS</option>
-          </select>
-          <input id="buscador-integrado" type="text" placeholder="Google o nombre del archivo...">
-          <button type="submit" aria-label="Buscar">⌕</button>
-        </form>
-      </section>
-
-      <section class="widget widget-explorador">
-        <div class="widget-titulo"><span>EXPLORADOR DE ARCHIVOS</span><i>02</i></div>
-        <form id="formulario-archivos" class="formulario-widget">
-          <label class="sr-only" for="buscador-archivos">Nombre del archivo</label>
-          <input id="buscador-archivos" type="text" placeholder="Nombre del archivo...">
-          <button name="accion" value="buscar" type="submit">BUSCAR</button>
-          <button name="accion" value="abrir" type="submit">ABRIR</button>
-        </form>
-        <p class="widget-ayuda">La apertura solicita autorización en el HUD.</p>
-      </section>
-
-      <section class="widget widget-notificaciones" aria-live="polite">
-        <div class="widget-titulo"><span>NOTIFICACIONES</span><i id="contador-notificaciones">00</i></div>
-        <ul id="lista-notificaciones" class="lista-notificaciones">
-          <li class="vacia">Sin notificaciones recientes.</li>
-        </ul>
-      </section>
-
-      <section class="widget widget-tareas">
-        <div class="widget-titulo">
-          <span>LISTA DE TAREAS</span>
-          <button id="limpiar-tareas" class="boton-texto" type="button">LIMPIAR</button>
-        </div>
-        <ul id="lista-tareas" class="lista-tareas"></ul>
-        <form id="formulario-tarea" class="formulario-widget">
-          <label class="sr-only" for="nueva-tarea">Nueva tarea</label>
-          <input id="nueva-tarea" type="text" maxlength="120" placeholder="Agregar una tarea...">
-          <button type="submit" aria-label="Agregar tarea">+</button>
-        </form>
-      </section>
-
-      <section class="widget widget-calendario">
-        <div class="widget-titulo">
-          <button id="mes-anterior" class="boton-texto" type="button" aria-label="Mes anterior">‹</button>
-          <span id="titulo-calendario">CALENDARIO</span>
-          <button id="mes-siguiente" class="boton-texto" type="button" aria-label="Mes siguiente">›</button>
-        </div>
-        <div id="calendario" class="calendario" aria-label="Calendario mensual"></div>
-      </section>
-
-      <details id="chat-secundario" class="widget chat-secundario">
-        <summary>CHAT DE TEXTO <span>CANAL SECUNDARIO</span></summary>
-      <div class="chat-cabecera">
-        <div>
-          <span class="seccion-indice">COMUNICACIÓN</span>
-          <h1>Conversación</h1>
-        </div>
-        <button
-          id="detener-voz"
-          class="boton-detener-voz"
-          type="button"
-          aria-label="Detener ahora la voz de Jarvis. También puedes presionar F8."
-          title="Detener la voz de Jarvis (F8)"
-        >
-          <span aria-hidden="true">■</span> DETENER <kbd>F8</kbd>
-        </button>
-      </div>
-      <div id="chat" role="log" aria-live="polite" aria-relevant="additions"></div>
-      <form id="formulario-chat" autocomplete="off">
-        <label for="caja" class="sr-only">Mensaje para Jarvis</label>
-        <input id="caja" type="text" placeholder="Escribe un mensaje..." autocomplete="off">
-        <button id="enviar" type="submit" aria-label="Enviar mensaje">
-          <span aria-hidden="true">↑</span>
-        </button>
-      </form>
-      <p class="chat-pie"><span class="tecla">ENTER</span> para enviar <span>·</span> <span><span class="tecla">F8</span> o DETENER para cortar la voz</span></p>
-      </details>
-    </aside>
+  <main id="centro">
+    <canvas id="orb" aria-hidden="true"></canvas>
+    <div class="cab">
+      <svg id="cara" viewBox="0 0 200 170" role="img" aria-label="Cara de Jarvis"><g class="fl2">
+        <rect x="38" y="14" width="124" height="120" rx="58" class="hd"/><rect x="20" y="56" width="20" height="44" rx="10" class="ph"/><rect x="160" y="56" width="20" height="44" rx="10" class="ph"/>
+        <g class="oj feliz"><path d="M64 84q11-17 22 0M114 84q11-17 22 0"/></g><g class="oj abiertos"><circle cx="75" cy="82" r="10"/><circle cx="125" cy="82" r="10"/></g>
+        <g class="oj arriba"><circle cx="82" cy="76" r="9"/><circle cx="132" cy="76" r="9"/></g><g class="oj confuso"><circle cx="75" cy="82" r="10"/><path d="M114 84h22"/></g>
+        <path class="bc sonrisa" d="M84 108q16 16 32 0"/><ellipse class="bc hablar" cx="100" cy="114" rx="13" ry="5"/><path class="bc plana" d="M88 114h24"/><path class="bc confusa" d="M84 116q8-9 16 0t16 0"/>
+      </g></svg>
+      <div class="bur" id="bur" aria-live="polite">Hola, soy JARVIS. ¿En qué puedo ayudarte hoy?</div>
+    </div>
+    <div class="est" id="est"></div><div id="log" aria-live="polite"></div>
+    <div class="barra">
+      <input id="caja" placeholder="Escribe aquí o di «Jarvis» para hablar…" autocomplete="off" aria-label="Mensaje">
+      <button id="env">Enviar</button><button id="det" title="Detener a Jarvis (F8)">DETENER</button>
+    </div>
   </main>
 
-  <footer class="barra-inferior">
-    <span><i class="barra-punto" aria-hidden="true"></i> PRIVADO POR DISEÑO</span>
-    <span>JARVIS <b>·</b> SISTEMA PERSONAL</span>
-    <span>TTS <strong id="estado-audio">ACTIVO</strong></span>
-  </footer>
-
-  <dialog id="dialogo-confirmacion" aria-labelledby="confirmacion-titulo">
-    <form method="dialog" class="confirmacion">
-      <span class="confirmacion-icono" aria-hidden="true">!</span>
-      <p class="seccion-indice">AUTORIZACIÓN REQUERIDA</p>
-      <h2 id="confirmacion-titulo">Confirmar acción</h2>
-      <p id="confirmacion-detalle">Jarvis solicita permiso para una acción.</p>
-      <p class="confirmacion-expira">Esta solicitud vence en 30 segundos.</p>
-      <div class="confirmacion-botones">
-        <button id="cancelar-accion" class="boton-secundario" type="button">Cancelar</button>
-        <button id="confirmar-accion" class="boton-confirmar" type="button">Autorizar acción</button>
-      </div>
-    </form>
-  </dialog>
-
-  <script src="/static/hud.js"></script>
+  <section class="col" aria-label="Herramientas">
+    <article class="card"><h2>El tiempo</h2><div id="clima">Pulsa Actualizar para consultar el clima de tu ubicación.</div><div class="dias" id="dias"></div><button id="actualizar-clima" style="margin-top:.4rem">Actualizar</button></article>
+    <article class="card">
+      <h2>Información útil</h2><div class="dato">Fecha <b id="d1">–</b></div><div class="dato">Hora <b id="d2">–</b></div>
+      <div class="dato">Ubicación <b id="d4">Sin consultar</b></div><div class="dato">Internet <b id="d3">Comprobando…</b></div>
+    </article>
+    <article class="card cb"><h2>Control del PC</h2><div class="g g3">
+      <button id="abrir">▱<small>Abrir programa</small></button><button data-t="apaga el computador">⏻<small>Apagar</small></button><button data-t="reinicia el computador">◉<small>Reiniciar</small></button>
+      <button data-t="toma una captura de pantalla">▣<small>Captura</small></button><button data-t="sube el volumen">◖+<small>Volumen</small></button><button data-t="baja el volumen">◖−<small>Volumen</small></button>
+      <button data-t="sube el brillo">☼+<small>Brillo</small></button><button data-t="baja el brillo">☼−<small>Brillo</small></button><button data-t="información del sistema">▦<small>Sistema</small></button>
+    </div></article>
+    <article class="card"><h2>Archivos</h2><div class="f"><input id="aq" placeholder="Nombre del archivo…" aria-label="Nombre del archivo"><button id="ab">Buscar</button><button id="ao">Abrir</button></div><div id="arch"></div></article>
+    <article class="card"><h2>Buscador</h2><div class="f"><input id="bq" placeholder="Google, YouTube, Wikipedia…" aria-label="Buscar"><button id="bg">Google</button><button id="by">YouTube</button><button id="bw">Wiki</button></div></article>
+    <article class="card"><h2>Traductor</h2><div class="f"><select id="tf"><option value="es">español</option><option value="en">inglés</option><option value="fr">francés</option><option value="pt">portugués</option></select><select id="ti"><option value="en">inglés</option><option value="es">español</option><option value="fr">francés</option><option value="pt">portugués</option></select></div><div class="f" style="margin-top:.4rem"><input id="tq" placeholder="Escribe aquí…" aria-label="Texto a traducir"><button id="tb">Traducir</button></div></article>
+    <article class="card"><h2>Calendario</h2><div class="f" style="justify-content:space-between;align-items:center"><button id="cm" aria-label="Mes anterior">‹</button><b id="ct"></b><button id="cs" aria-label="Mes siguiente">›</button></div><div class="cal" id="cal"></div><ul class="lista" id="ev"></ul><div class="f"><input id="en" placeholder="Evento del día elegido…" aria-label="Nuevo evento"><button id="ea">+</button></div></article>
+    <article class="card"><h2>Lista de tareas</h2><ul class="lista" id="tar"></ul><div class="f"><input id="tn" placeholder="Nueva tarea…" aria-label="Nueva tarea"><button id="ta">+</button></div></article>
+  </section>
+  <footer><b>✳ JARVIS</b><em>“La tecnología no reemplaza la mente, la potencia.”</em><span>F8 = detener</span><button id="fm" aria-label="Letra más pequeña">A−</button><button id="fp" aria-label="Letra más grande">A+</button><button id="lg">Ligero</button><button id="pw" title="Apagar Jarvis" aria-label="Apagar Jarvis">⏻</button></footer>
+  <script>document.write(`<script src="${RUTA}app.js"><\/script>`);</script>
 </body>
 </html>

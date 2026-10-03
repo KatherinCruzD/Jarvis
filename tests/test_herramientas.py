@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from unittest.mock import Mock, patch
 
@@ -96,6 +97,30 @@ class HerramientasTests(unittest.TestCase):
 
         self.assertEqual(respuesta, "Buscando jarvis en Google.")
         abrir.assert_called_once()
+
+    def test_cambia_brillo_en_windows_con_el_nivel_del_monitor(self):
+        respuesta_ps = Mock(stdout="Brillo ajustado a 60%.")
+        with (
+            patch.object(utilidades.os, "name", "nt"),
+            patch.object(utilidades.subprocess, "run", return_value=respuesta_ps) as ejecutar,
+        ):
+            respuesta = herramientas.manejar("sube el brillo")
+
+        self.assertEqual(respuesta, "Brillo ajustado a 60%.")
+        ejecutar.assert_called_once()
+        self.assertIn("WmiMonitorBrightnessMethods", ejecutar.call_args.args[0][-1])
+        self.assertIn("$ajuste = 10", ejecutar.call_args.args[0][-1])
+
+    def test_informa_si_el_monitor_no_admite_cambiar_brillo(self):
+        error = subprocess.CalledProcessError(1, "powershell", stderr="No se encontró el monitor.")
+        with (
+            patch.object(utilidades.os, "name", "nt"),
+            patch.object(utilidades.subprocess, "run", side_effect=error),
+        ):
+            respuesta = herramientas.manejar("baja el brillo")
+
+        self.assertIn("No pude cambiar el brillo", respuesta)
+        self.assertIn("No se encontró el monitor", respuesta)
 
     def test_apagar_y_reiniciar_solo_se_ejecutan_con_run_simulado(self):
         with patch.object(utilidades.subprocess, "run") as ejecutar:
