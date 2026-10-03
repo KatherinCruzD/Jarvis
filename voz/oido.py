@@ -30,6 +30,7 @@ pausa = threading.Event()
 parar = threading.Event()
 procesando = threading.Event()
 interrumpir_habla = threading.Event()
+privado = threading.Event()
 _modelo = None
 
 
@@ -164,6 +165,8 @@ def grabar_frase(
     ) as flujo:
         while not parar.is_set():
             datos, _ = flujo.read(tamano)
+            if privado.is_set():
+                return None
             if pausa.is_set():
                 if detector_interrupcion is None:
                     detector_interrupcion = DetectorInterrupcion()
@@ -283,6 +286,10 @@ def bucle(al_comando, al_estado):
     print("[oído] listo, esperando tu voz...")
     ventana_hasta = 0.0
     while not parar.is_set():
+        while privado.is_set() and not parar.wait(0.1):
+            pass
+        if parar.is_set():
+            break
         detector_interrupcion = DetectorInterrupcion()
         if dispositivo is None:
             audio = grabar_frase(detector_interrupcion)
@@ -295,6 +302,8 @@ def bucle(al_comando, al_estado):
                     "[oído] detuve la lectura; di tu orden otra vez dentro de "
                     f"{SEGUNDOS_CONVERSACION} segundos"
                 )
+            continue
+        if privado.is_set():
             continue
         maximo = float(np.abs(audio).max())
         print(f"[oído] {len(audio) / FRECUENCIA:.1f} s, volumen máximo {maximo:.2f}")

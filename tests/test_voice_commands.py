@@ -52,6 +52,7 @@ class VoiceCommandTests(unittest.TestCase):
         oido.parar.clear()
         oido.pausa.clear()
         oido.interrumpir_habla.clear()
+        oido.privado.clear()
 
     def test_activation_is_removed_only_at_start(self):
         self.assertEqual(oido.quitar_activacion("Jarvis, abre Word"), "abre Word")
@@ -692,6 +693,14 @@ class VoiceCommandTests(unittest.TestCase):
         self.assertIn("Elige manualmente", respuesta)
         self.assertIn("no envió", respuesta)
 
+    def test_whatsapp_message_url_encodes_accents_and_punctuation(self):
+        with patch("core.whatsapp.abrir_url_segura") as abrir:
+            preparar_mensaje_whatsapp("Mamá", "Hola, ¿cómo estás?")
+
+        abrir.assert_called_once_with(
+            "https://wa.me/?text=Hola%2C+%C2%BFc%C3%B3mo+est%C3%A1s%3F"
+        )
+
     def test_youtube_commands_open_a_free_autoplay_watch_page(self):
         identificador = "abcdefghijk"
         with (
@@ -801,6 +810,8 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
         servidor.conexiones.clear()
         servidor.oido = oido
         servidor.ajustes["proveedor"] = "local"
+        servidor.ajustes["modo"] = "escucha"
+        oido.privado.clear()
 
     async def test_tts_receives_cancellation_event(self):
         servidor.oido = oido
@@ -817,6 +828,32 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(to_thread.await_args.args[2], oido.interrumpir_habla)
         self.assertFalse(oido.pausa.is_set())
         self.assertFalse(oido.interrumpir_habla.is_set())
+
+    async def test_private_mode_disables_microphone_and_voice_output(self):
+        with patch.object(servidor, "difundir", new_callable=AsyncMock):
+            self.assertTrue(await servidor.cambiar_modo("privado"))
+
+        self.assertTrue(oido.privado.is_set())
+        self.assertTrue(oido.interrumpir_habla.is_set())
+        with (
+            patch.object(servidor, "difundir", new_callable=AsyncMock),
+            patch.object(
+                servidor.asyncio, "to_thread", new_callable=AsyncMock
+            ) as to_thread,
+        ):
+            await servidor.responder_en_voz("No se debe reproducir.")
+
+        to_thread.assert_not_awaited()
+        with patch.object(servidor, "difundir", new_callable=AsyncMock):
+            self.assertTrue(await servidor.cambiar_modo("escucha"))
+        self.assertFalse(oido.privado.is_set())
+
+    async def test_private_mode_rejects_invalid_mode(self):
+        with patch.object(servidor, "difundir", new_callable=AsyncMock) as difundir:
+            self.assertFalse(await servidor.cambiar_modo(["privado"]))
+
+        difundir.assert_not_awaited()
+        self.assertEqual(servidor.ajustes["modo"], "escucha")
 
     async def test_lifespan_stops_and_joins_audio_thread(self):
         def esperar_cierre(_):
@@ -1357,6 +1394,141 @@ class ServerVoiceFlowTests(unittest.IsolatedAsyncioTestCase):
         evento = json.loads(hud.send_text.await_args.args[0])
         self.assertEqual(evento["tipo"], "confirmacion_requerida")
         self.assertEqual(servidor._pendientes[evento["id"]][2], hud)
+
+    async def test_authorizing_whatsapp_runs_approved_link_action(self):
+        class FakeHud:
+            def __init__(self):
+                self.headers = {"origin": "http://127.0.0.1:8000"}
+                self.enviados = []
+                self.entrantes = []
+
+            async def accept(self):
+                pass
+
+            async def send_text(self, texto):
+                self.enviados.append(json.loads(texto))
+
+            async def receive_text(self):
+                if not self.entrantes:
+                    raise WebSocketDisconnect(code=1000)
+                return self.entrantes.pop(0)
+
+            async def close(self, **_):
+                pass
+
+        hud = FakeHud()
+        servidor.conexiones.add(hud)
+        with (
+            patch.object(servidor, "difundir", new_callable=AsyncMock),
+            patch.object(servidor, "responder_en_voz", new_callable=AsyncMock),
+            patch(
+                "servidor.app.nombre_documento_activo",
+                return_value="ensayo.docx",
+            ),
+            patch(
+                "servidor.app.insertar_texto_documento",
+                return_value="Texto insertado en Word.",
+            ) as insertar,
+        ):
+            await servidor.procesar(
+                "escribe en el documento: texto autorizado"
+            )
+            evento = next(
+                mensaje
+                for mensaje in hud.enviados
+                if mensaje.get("tipo") == "confirmacion_requerida"
+            )
+            hud.entrantes.append(
+                json.dumps(
+                    {"tipo": "confirmar_atajo", "id": evento["id"]}
+                )
+            )
+            await servidor.conexion(hud)
+
+        insertar.assert_called_once_with("texto autorizado", "ensayo.docx")
+        self.assertFalse(servidor._pendientes)
+
+    async def test_authorizing_whatsapp_opens_prefilled_link_for_manual_send(self):
+        class FakeHud:
+            def __init__(self):
+                self.headers = {"origin": "http://127.0.0.1:8000"}
+                self.enviados = []
+                self.entrantes = []
+
+            async def accept(self):
+                pass
+
+            async def send_text(self, texto):
+                self.enviados.append(json.loads(texto))
+
+            async def receive_text(self):
+                if not self.entrantes:
+                    raise WebSocketDisconnect(code=1000)
+                return self.entrantes.pop(0)
+
+            async def close(self, **_):
+                pass
+
+        hud = FakeHud()
+        servidor.conexiones.add(hud)
+        with (
+            patch.object(servidor, "difundir", new_callable=AsyncMock) as difundir,
+            patch.object(servidor, "responder_en_voz", new_callable=AsyncMock),
+            patch("core.whatsapp.abrir_url_segura") as abrir_enlace,
+        ):
+            await servidor.procesar(
+                'envía a mamá un mensaje de "Hola, ¿cómo estás?"',
+                desde_voz=True,
+            )
+            evento = next(
+                mensaje
+                for mensaje in hud.enviados
+                if mensaje.get("tipo") == "confirmacion_requerida"
+            )
+            self.assertIn("mamá", evento["detalle"])
+            self.assertIn("No se enviará automáticamente", evento["detalle"])
+            hud.entrantes.append(
+                json.dumps(
+                    {"tipo": "confirmar_atajo", "id": evento["id"]}
+                )
+            )
+            await servidor.conexion(hud)
+
+        abrir_enlace.assert_called_once_with(
+            "https://wa.me/?text=Hola%2C+%C2%BFc%C3%B3mo+est%C3%A1s%3F"
+        )
+        self.assertTrue(
+            any(
+                llamada.kwargs.get("tipo") == "respuesta"
+                and "Elige manualmente" in llamada.kwargs.get("texto", "")
+                for llamada in difundir.await_args_list
+            )
+        )
+
+    async def test_telemetry_reports_supported_windows_metrics(self):
+        bateria = SimpleNamespace(percent=82)
+        temperatura = SimpleNamespace(current=51.6)
+        with (
+            patch.object(servidor.psutil, "cpu_percent", return_value=23),
+            patch.object(
+                servidor.psutil,
+                "virtual_memory",
+                return_value=SimpleNamespace(percent=47),
+            ),
+            patch.object(servidor.psutil, "sensors_battery", return_value=bateria),
+            patch.object(
+                servidor.psutil,
+                "sensors_temperatures",
+                return_value={"CPU": [temperatura]},
+                create=True,
+            ),
+        ):
+            datos = servidor.obtener_telemetria()
+
+        self.assertEqual(
+            datos,
+            {"cpu": 23, "ram": 47, "bateria": 82, "temperatura": 52},
+        )
 
     async def test_sensitive_action_waits_for_a_connected_hud(self):
         servidor.conexiones.clear()

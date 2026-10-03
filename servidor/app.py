@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from ollama import RequestError as OllamaRequestError
 from ollama import ResponseError as OllamaResponseError
+import psutil
 
 from core.acciones import (
     abrir_busqueda_spotify,
@@ -75,7 +76,7 @@ ORIGENES_PERMITIDOS = {
 }
 
 conexiones = set()
-ajustes = {"voz": True, "proveedor": "local"}
+ajustes = {"voz": True, "proveedor": "local", "modo": "escucha"}
 oido = None
 _hilo_oido: threading.Thread | None = None
 _hilo_tecla: threading.Thread | None = None
@@ -120,7 +121,7 @@ def solicitar_apagado() -> None:
 
 
 async def responder_en_voz(texto: str) -> None:
-    if not ajustes["voz"]:
+    if not ajustes["voz"] or ajustes["modo"] == "privado":
         return
     if oido:
         oido.pausa.set()
@@ -139,6 +140,24 @@ async def responder_en_voz(texto: str) -> None:
         if oido:
             oido.interrumpir_habla.clear()
             oido.pausa.clear()
+
+
+async def cambiar_modo(modo: object) -> bool:
+    if not isinstance(modo, str) or modo not in {
+        "escucha",
+        "conversacion",
+        "privado",
+    }:
+        return False
+    ajustes["modo"] = modo
+    if oido:
+        if modo == "privado":
+            oido.privado.set()
+            oido.interrumpir_habla.set()
+        else:
+            oido.privado.clear()
+    await difundir(tipo="modo", valor=modo)
+    return True
 
 
 async def solicitar_confirmacion(
@@ -653,6 +672,7 @@ async def ciclo_de_vida(app):
         modulo.pausa.clear()
         modulo.procesando.clear()
         modulo.interrumpir_habla.clear()
+        modulo.privado.clear()
     except Exception:
         logging.exception("No se pudo preparar el dispositivo de audio.")
     app.state.estado_oido = "iniciando"
@@ -689,6 +709,33 @@ app = FastAPI(lifespan=ciclo_de_vida)
 app.mount("/static", StaticFiles(directory=CARPETA_WEB), name="static")
 
 
+@app.get("/api/telemetria")
+def obtener_telemetria() -> dict[str, int | None]:
+    bateria = psutil.sensors_battery()
+    lectura_temperatura = getattr(psutil, "sensors_temperatures", None)
+    temperatura = None
+    if lectura_temperatura is not None:
+        try:
+            sensores = lectura_temperatura()
+        except NotImplementedError:
+            sensores = {}
+        lecturas = [
+            lectura.current
+            for grupo in sensores.values()
+            for lectura in grupo
+            if lectura.current is not None
+        ]
+        if lecturas:
+            temperatura = round(max(lecturas))
+
+    return {
+        "cpu": round(psutil.cpu_percent(interval=None)),
+        "ram": round(psutil.virtual_memory().percent),
+        "bateria": round(bateria.percent) if bateria is not None else None,
+        "temperatura": temperatura,
+    }
+
+
 @app.get("/")
 def inicio():
     return FileResponse(CARPETA_WEB / "index.html")
@@ -708,6 +755,9 @@ async def conexion(ws: WebSocket):
                 "valor": getattr(app.state, "estado_oido", "iniciando"),
             }
         )
+    )
+    await ws.send_text(
+        json.dumps({"tipo": "modo", "valor": ajustes["modo"]}, ensure_ascii=False)
     )
     try:
         while True:
@@ -736,6 +786,15 @@ async def conexion(ws: WebSocket):
                     )
             elif tipo == "proveedor":
                 ajustes["proveedor"] = mensaje["valor"]
+            elif tipo == "modo":
+                modo = mensaje.get("valor")
+                if not await cambiar_modo(modo):
+                    await ws.send_text(
+                        json.dumps(
+                            {"tipo": "aviso", "texto": "Ese modo de Jarvis no es válido."},
+                            ensure_ascii=False,
+                        )
+                    )
             elif tipo == "atajo":
                 nombre = mensaje.get("valor")
                 if describir_atajo(nombre) is None:

@@ -134,6 +134,33 @@ body::after {
 .controles { display: flex; align-items: center; gap: 10px; }
 .control-etiqueta { color: var(--texto-suave); font-size: 9px; letter-spacing: 0.16em; }
 
+.telemetria {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 clamp(20px, 3vw, 52px);
+  border-bottom: 1px solid rgba(88, 190, 214, 0.1);
+  background: rgba(4, 12, 19, 0.58);
+  color: #87a9b6;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.telemetria-titulo,
+.telemetria-dato { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.telemetria-titulo { color: var(--verde); }
+.telemetria-titulo.desconectado { color: #ff9098; }
+.telemetria-titulo strong { font-size: 8px; font-weight: 500; }
+.telemetria-titulo i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.telemetria-dato strong { color: #cce6ee; font-size: 9px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.telemetria-fecha { color: #7593a0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#telemetria-red.conectado { color: var(--verde); }
+#telemetria-red.desconectado { color: #ff9098; }
+
 select,
 input[type="text"],
 button {
@@ -176,7 +203,7 @@ button:focus-visible { outline: 2px solid var(--cian); outline-offset: 3px; }
   position: relative;
   z-index: 1;
   display: grid;
-  height: calc(100vh - 126px);
+  height: calc(100vh - 162px);
   min-height: 460px;
   grid-template-columns: minmax(190px, 225px) minmax(280px, 1fr) minmax(290px, 345px);
   gap: clamp(15px, 2.2vw, 34px);
@@ -205,6 +232,10 @@ button:focus-visible { outline: 2px solid var(--cian); outline-offset: 3px; }
 
 #atajos {
   clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 0 100%);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: rgba(98, 231, 255, 0.25) transparent;
+  scrollbar-width: thin;
 }
 
 .seccion-cabecera { display: flex; align-items: center; gap: 12px; }
@@ -603,6 +634,176 @@ body[data-estado="reposo"] .estado-onda i:last-child { height: 2px; }
 .boton-confirmar { border: 1px solid rgba(98, 231, 255, 0.53); background: rgba(37, 147, 170, 0.2); color: var(--cian); }
 .boton-confirmar:hover { background: rgba(37, 147, 170, 0.38); }
 
+.widget {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgba(92, 198, 224, 0.2);
+  background: linear-gradient(145deg, rgba(9, 27, 40, 0.8), rgba(5, 15, 24, 0.74));
+  box-shadow: inset 0 1px rgba(195, 244, 255, 0.035), 0 9px 24px rgba(0, 0, 0, 0.16);
+}
+
+.widget-titulo {
+  display: flex;
+  min-height: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+  color: #9cd6e6;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.widget-titulo i { color: #4e8192; font-size: 7px; font-style: normal; }
+.widget-rendimiento { margin: 13px 0 5px; }
+.medidores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.medidor { display: grid; justify-items: center; gap: 5px; color: #829eaa; font-size: 7px; letter-spacing: 0.12em; }
+.medidor-circulo {
+  display: grid;
+  width: 48px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 3px solid transparent;
+  background:
+    linear-gradient(#07131e, #07131e) padding-box,
+    conic-gradient(rgba(69, 206, 239, 0.84) var(--nivel, 72%), rgba(69, 206, 239, 0.14) 0) border-box;
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(31, 188, 226, 0.12), inset 0 0 11px rgba(31, 188, 226, 0.09);
+}
+
+.medidor-circulo strong { color: #d7f3f9; font-size: 10px; font-weight: 500; letter-spacing: 0; }
+.medidor-bateria {
+  background:
+    linear-gradient(#07131e, #07131e) padding-box,
+    conic-gradient(rgba(121, 255, 197, 0.78) var(--nivel, 72%), rgba(121, 255, 197, 0.14) 0) border-box;
+}
+.medidor-disco strong { color: #ffd098; font-size: 7px; }
+.widget-musica { margin-top: 10px; }
+.controles-musica { display: flex; justify-content: center; gap: 13px; }
+.controles-musica button,
+.formulario-widget button {
+  min-width: 32px;
+  min-height: 30px;
+  border: 1px solid rgba(98, 231, 255, 0.25);
+  background: rgba(21, 84, 105, 0.22);
+  color: var(--cian);
+  cursor: pointer;
+}
+
+.controles-musica button:hover,
+.formulario-widget button:hover { background: rgba(35, 142, 167, 0.4); }
+.widget-ayuda { display: block; margin: 7px 0 0; color: #6f8c98; font-size: 7px; line-height: 1.45; }
+.widget-notas { display: grid; gap: 5px; margin-top: 10px; }
+.widget-notas .widget-titulo { margin-bottom: 2px; }
+#bloc-notas {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid rgba(92, 198, 224, 0.16);
+  background: rgba(3, 12, 20, 0.6);
+  color: #c9e2ea;
+  font: inherit;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+#bloc-notas::placeholder,
+.formulario-widget input::placeholder { color: #597785; }
+.widget-rendimiento,
+.widget-musica,
+.widget-notas { flex: 0 0 auto; }
+.widget-rendimiento { padding: 10px 7px; }
+.widget-rendimiento .widget-titulo { font-size: 7px; letter-spacing: 0.07em; }
+.modos {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.modo {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(98, 231, 255, 0.2);
+  border-radius: 18px;
+  background: rgba(4, 16, 26, 0.84);
+  color: #7696a4;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.modo span { margin-right: 4px; }
+.modo-escucha span { color: #55efa9; }
+.modo-conversacion span { color: #55bfff; }
+.modo-privado span { color: #ff737d; }
+.modo-escucha.activo { border-color: #55efa9; color: #c5ffe1; box-shadow: 0 0 12px rgba(85, 239, 169, 0.2); }
+.modo-conversacion.activo { border-color: #55bfff; color: #d0edff; box-shadow: 0 0 12px rgba(85, 191, 255, 0.2); }
+.modo-privado.activo { border-color: #ff737d; color: #ffd4d7; box-shadow: 0 0 12px rgba(255, 115, 125, 0.2); }
+body[data-modo="escucha"][data-estado="reposo"] #estado { color: var(--verde); }
+body[data-modo="conversacion"][data-estado="reposo"] #estado { color: #72cfff; }
+body[data-modo="privado"] #estado { color: #ff737d; text-shadow: 0 0 14px rgba(255, 115, 125, 0.56); }
+body[data-modo="privado"] .plataforma-haz { background: linear-gradient(0deg, rgba(255, 75, 92, 0.3), rgba(255, 105, 125, 0.05) 62%, transparent); }
+
+#panel-widgets {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 9px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: rgba(98, 231, 255, 0.25) transparent;
+  scrollbar-width: thin;
+}
+
+.formulario-widget { display: flex; min-width: 0; gap: 5px; }
+.formulario-widget input {
+  min-width: 0;
+  flex: 1;
+  padding: 0 8px;
+  border: 1px solid rgba(92, 198, 224, 0.16);
+  background: rgba(3, 12, 20, 0.66);
+  font-size: 8px;
+}
+
+.formulario-widget select { min-height: 30px; padding: 0 5px; font-size: 7px; }
+.formulario-widget button { padding: 0 8px; font-size: 7px; letter-spacing: 0.06em; white-space: nowrap; }
+.lista-notificaciones,
+.lista-tareas { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.lista-notificaciones li { overflow: hidden; color: #afc8d1; font-size: 8px; line-height: 1.4; text-overflow: ellipsis; }
+.lista-notificaciones .vacia { color: #6f8c98; }
+.lista-notificaciones li::before { margin-right: 6px; color: var(--cian); content: "›"; }
+.lista-tareas { max-height: 98px; overflow-y: auto; }
+.tarea { display: flex; align-items: center; gap: 6px; color: #b8cdd5; font-size: 8px; }
+.tarea input { accent-color: #62e7ff; }
+.tarea span { flex: 1; overflow-wrap: anywhere; }
+.tarea.completada span { color: #69828d; text-decoration: line-through; }
+.tarea-eliminar { border: 0; background: transparent; color: #718c98; cursor: pointer; }
+.boton-texto { border: 0; background: transparent; color: #71b9cb; font: inherit; font-size: 8px; cursor: pointer; }
+.widget-tareas .formulario-widget { margin-top: 8px; }
+.calendario { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
+.calendario span,
+.calendario button { display: grid; min-height: 19px; place-items: center; color: #829daa; font-size: 7px; }
+.calendario button { border: 1px solid transparent; background: transparent; cursor: pointer; }
+.calendario button:hover { border-color: rgba(98, 231, 255, 0.38); }
+.calendario button.hoy { border-color: rgba(98, 231, 255, 0.7); color: var(--cian); }
+.calendario button.seleccionado { background: rgba(98, 231, 255, 0.18); color: #dffaff; }
+.chat-secundario { flex: 0 0 auto; padding: 0; }
+.chat-secundario > summary { padding: 10px; color: #a9d9e6; font-size: 8px; letter-spacing: 0.12em; cursor: pointer; }
+.chat-secundario > summary span { float: right; color: #64818e; font-size: 7px; }
+#panel-widgets .chat-cabecera { padding: 10px; }
+#panel-widgets .chat-cabecera h1 { font-size: 12px; }
+#panel-widgets #chat { max-height: 180px; padding: 10px; }
+#panel-widgets #formulario-chat { margin: 0 8px; }
+#panel-widgets .chat-pie { padding: 7px 9px; }
+
 @keyframes onda { to { height: 13px; opacity: 0.55; } }
 @keyframes orbita { to { transform: translate(-50%, -50%) rotate(360deg); } }
 @keyframes aparecer { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -614,10 +815,12 @@ body[data-estado="reposo"] .estado-onda i:last-child { height: 2px; }
   .paneles { grid-template-columns: minmax(170px, 195px) minmax(250px, 1fr) minmax(270px, 310px); gap: 14px; padding-right: 20px; padding-left: 20px; }
   #atajos { padding-right: 10px; padding-left: 10px; }
   .anotacion-inferior { font-size: 7px; }
+  .telemetria { gap: 10px; }
+  .telemetria-fecha { display: none; }
 }
 
 @media (min-width: 791px) and (max-height: 720px) {
-  .paneles { height: calc(100vh - 106px); min-height: 0; padding-top: 14px; padding-bottom: 14px; }
+  .paneles { height: calc(100vh - 142px); min-height: 0; padding-top: 14px; padding-bottom: 14px; }
   #atajos { overflow-y: auto; scrollbar-color: rgba(98, 231, 255, 0.28) transparent; scrollbar-width: thin; }
   .atajo { min-height: 43px; padding-top: 4px; padding-bottom: 4px; }
   .tarjeta-audio { gap: 5px; margin-top: 9px; padding: 8px; }
@@ -631,8 +834,11 @@ body[data-estado="reposo"] .estado-onda i:last-child { height: 2px; }
   body { overflow: auto; }
   .barra-superior { min-height: 68px; padding: 12px 17px; }
   .sistema { display: none; }
+  .telemetria { min-height: 34px; justify-content: flex-start; gap: 13px; overflow-x: auto; padding: 0 14px; scrollbar-width: none; }
+  .telemetria::-webkit-scrollbar { display: none; }
+  .telemetria-titulo { display: none; }
   .paneles { display: flex; height: auto; min-height: 0; flex-direction: column; gap: 14px; padding: 14px 14px 22px; }
-  #atajos { order: 1; padding: 14px; }
+  #atajos { order: 1; max-height: none; padding: 14px; overflow: visible; }
   #atajos .seccion-titulo { margin-bottom: 10px; }
   .lista-atajos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
   .atajo { min-height: 48px; gap: 7px; padding: 5px; }
@@ -651,7 +857,11 @@ body[data-estado="reposo"] .estado-onda i:last-child { height: 2px; }
   .lectura-superior { top: 15%; right: 2%; }
   .anotacion-superior { top: 4%; left: 2%; }
   .anotacion-inferior { right: 2%; bottom: 4%; left: 2%; }
-  #panel-chat { order: 2; height: 48vh; min-height: 330px; }
+  #panel-widgets { order: 2; max-height: none; overflow: visible; }
+  .modo { min-height: 28px; padding: 0 7px; font-size: 6px; }
+  .modos { bottom: 0; gap: 4px; }
+  .anotacion-inferior { bottom: 14%; }
+  .chat-secundario[open] #chat { max-height: 35vh; min-height: 140px; }
   .barra-inferior { min-height: 40px; gap: 6px; padding: 0 13px; font-size: 7px; }
   .barra-inferior > span:nth-child(2) { display: none; }
 }
@@ -670,7 +880,7 @@ body[data-estado="reposo"] .estado-onda i:last-child { height: 2px; }
   .nucleo-anotacion { width: 85%; }
   .chat-cabecera { padding: 15px; }
   .boton-detener-voz { min-height: 30px; gap: 4px; padding: 0 6px; font-size: 7px; }
-  #chat { padding: 14px; }
+  #panel-widgets #chat { padding: 14px; }
 }
 
 @media (max-width: 360px) {

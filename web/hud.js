@@ -14,9 +14,13 @@ let escala = 1;
 let socket;
 let accionPendiente = null;
 let estado = "reposo";
+let modoActual = "escucha";
 let angulo = 0;
 let pulso = 0;
 let apagando = false;
+let fechaCalendario = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let fechaSeleccionada = new Date();
+const notificaciones = [];
 
 const TOTAL = 760;
 const puntos = [];
@@ -47,7 +51,12 @@ window.addEventListener("resize", ajustarCanvas);
 ajustarCanvas();
 
 function dibujarNucleo() {
-  const actual = ESTADOS[estado] || ESTADOS.reposo;
+  const estadoBase = ESTADOS[estado] || ESTADOS.reposo;
+  const actual = modoActual === "privado"
+    ? { ...estadoBase, color: "255, 91, 111", velocidad: 0.0012 }
+    : estado === "reposo" && modoActual === "escucha"
+      ? { ...estadoBase, color: "113, 255, 197" }
+      : estadoBase;
   const cx = ancho * 0.5;
   const cy =
     ancho <= 790
@@ -143,6 +152,152 @@ function cambiarEstado(valor) {
   }
 }
 
+function cambiarModo(valor) {
+  if (!["escucha", "conversacion", "privado"].includes(valor)) return;
+  modoActual = valor;
+  document.body.dataset.modo = valor;
+  document.querySelectorAll(".modo[data-modo]").forEach((boton) => {
+    const activo = boton.dataset.modo === valor;
+    boton.classList.toggle("activo", activo);
+    boton.setAttribute("aria-pressed", String(activo));
+  });
+  if (valor === "privado") {
+    actividadVoz.textContent = "MODO PRIVADO · MICRÓFONO CERRADO";
+    document.getElementById("estado-microfono").textContent = "PRIVADO";
+    estadoVisual.textContent = "MODO PRIVADO";
+  } else if (valor === "conversacion") {
+    actividadVoz.textContent = "CONVERSACIÓN · CONTEXTO 20 S";
+    document.getElementById("estado-microfono").textContent = "ESCUCHANDO";
+    estadoVisual.textContent = "MODO CONVERSACIÓN";
+  } else {
+    actividadVoz.textContent = "ESPERANDO ACTIVACIÓN";
+    document.getElementById("estado-microfono").textContent = "ACTIVO";
+    estadoVisual.textContent = "MODO ESCUCHA";
+  }
+}
+
+function guardarLocal(clave, valor, estadoElemento) {
+  try {
+    localStorage.setItem(clave, JSON.stringify(valor));
+    if (estadoElemento) estadoElemento.textContent = "Guardado en este navegador.";
+    return true;
+  } catch (error) {
+    console.error(`No se pudo guardar ${clave} localmente.`, error);
+    if (estadoElemento) estadoElemento.textContent = "No se pudo guardar en este navegador.";
+    return false;
+  }
+}
+
+function leerLocal(clave, valorInicial) {
+  try {
+    const valor = localStorage.getItem(clave);
+    return valor === null ? valorInicial : JSON.parse(valor);
+  } catch (error) {
+    console.error(`No se pudo leer ${clave} localmente.`, error);
+    return valorInicial;
+  }
+}
+
+function agregarNotificacion(texto) {
+  notificaciones.unshift(texto);
+  notificaciones.length = Math.min(notificaciones.length, 4);
+  const lista = document.getElementById("lista-notificaciones");
+  lista.replaceChildren(...notificaciones.map((notificacion) => {
+    const item = document.createElement("li");
+    item.textContent = notificacion;
+    return item;
+  }));
+  document.getElementById("contador-notificaciones").textContent =
+    String(notificaciones.length).padStart(2, "0");
+}
+
+let tareas = leerLocal("jarvis-tareas-hud", []);
+if (!Array.isArray(tareas)) tareas = [];
+
+function dibujarTareas() {
+  const lista = document.getElementById("lista-tareas");
+  lista.replaceChildren();
+  if (!tareas.length) {
+    const vacia = document.createElement("li");
+    vacia.className = "vacia";
+    vacia.textContent = "No tienes tareas todavía.";
+    lista.append(vacia);
+    return;
+  }
+
+  tareas.forEach((tarea, indice) => {
+    const item = document.createElement("li");
+    item.className = `tarea${tarea.completada ? " completada" : ""}`;
+    const casilla = document.createElement("input");
+    casilla.type = "checkbox";
+    casilla.checked = Boolean(tarea.completada);
+    casilla.setAttribute("aria-label", `Completar ${tarea.texto}`);
+    casilla.addEventListener("change", () => {
+      tareas[indice].completada = casilla.checked;
+      guardarLocal("jarvis-tareas-hud", tareas);
+      dibujarTareas();
+    });
+    const texto = document.createElement("span");
+    texto.textContent = tarea.texto;
+    const eliminar = document.createElement("button");
+    eliminar.className = "tarea-eliminar";
+    eliminar.type = "button";
+    eliminar.textContent = "×";
+    eliminar.setAttribute("aria-label", `Eliminar ${tarea.texto}`);
+    eliminar.addEventListener("click", () => {
+      tareas.splice(indice, 1);
+      guardarLocal("jarvis-tareas-hud", tareas);
+      dibujarTareas();
+    });
+    item.append(casilla, texto, eliminar);
+    lista.append(item);
+  });
+}
+
+function dibujarCalendario() {
+  const contenedor = document.getElementById("calendario");
+  const titulo = document.getElementById("titulo-calendario");
+  titulo.textContent = fechaCalendario.toLocaleDateString("es", {
+    month: "long",
+    year: "numeric",
+  }).toUpperCase();
+  contenedor.replaceChildren();
+  ["L", "M", "X", "J", "V", "S", "D"].forEach((dia) => {
+    const encabezado = document.createElement("span");
+    encabezado.textContent = dia;
+    contenedor.append(encabezado);
+  });
+  const primerDia = (fechaCalendario.getDay() + 6) % 7;
+  const diasEnMes = new Date(
+    fechaCalendario.getFullYear(),
+    fechaCalendario.getMonth() + 1,
+    0,
+  ).getDate();
+  for (let vacio = 0; vacio < primerDia; vacio += 1) {
+    contenedor.append(document.createElement("span"));
+  }
+  for (let dia = 1; dia <= diasEnMes; dia += 1) {
+    const boton = document.createElement("button");
+    const fecha = new Date(
+      fechaCalendario.getFullYear(),
+      fechaCalendario.getMonth(),
+      dia,
+    );
+    boton.type = "button";
+    boton.textContent = String(dia);
+    if (fecha.toDateString() === new Date().toDateString()) boton.classList.add("hoy");
+    if (fecha.toDateString() === fechaSeleccionada.toDateString()) {
+      boton.classList.add("seleccionado");
+    }
+    boton.setAttribute("aria-label", fecha.toLocaleDateString("es"));
+    boton.addEventListener("click", () => {
+      fechaSeleccionada = fecha;
+      dibujarCalendario();
+    });
+    contenedor.append(boton);
+  }
+}
+
 function agregar(quien, texto) {
   const mensaje = document.createElement("article");
   mensaje.className = `mensaje ${quien === "Jarvis" ? "jarvis" : "tu"}`;
@@ -157,12 +312,68 @@ function agregar(quien, texto) {
   mensaje.append(meta, contenido);
   chat.appendChild(mensaje);
   chat.scrollTop = chat.scrollHeight;
+  if (quien === "Jarvis") agregarNotificacion(texto);
 }
 
 function actualizarConexion(conectado) {
   conexionIndicador.classList.toggle("conectado", conectado);
   conexionIndicador.classList.toggle("desconectado", !conectado);
   conexionTexto.textContent = conectado ? "EN LÍNEA" : "SIN CONEXIÓN";
+  const estadoServidor = document.querySelector(".telemetria-titulo");
+  estadoServidor.classList.toggle("desconectado", !conectado);
+  document.getElementById("telemetria-servidor").textContent =
+    conectado ? "JARVIS ONLINE" : "JARVIS OFFLINE";
+}
+
+function actualizarRed() {
+  const conectado = navigator.onLine;
+  const indicador = document.getElementById("telemetria-red");
+  indicador.textContent = conectado ? "CONECTADO" : "SIN RED";
+  indicador.classList.toggle("conectado", conectado);
+  indicador.classList.toggle("desconectado", !conectado);
+}
+
+async function actualizarTelemetria() {
+  try {
+    const respuesta = await fetch("/api/telemetria", { cache: "no-store" });
+    if (!respuesta.ok) {
+      throw new Error(`El servidor respondió ${respuesta.status}.`);
+    }
+    const datos = await respuesta.json();
+    document.getElementById("telemetria-cpu").textContent = `${datos.cpu}%`;
+    document.getElementById("telemetria-ram").textContent = `${datos.ram}%`;
+    document.getElementById("cpu-panel").textContent = `${datos.cpu}%`;
+    document.getElementById("ram-panel").textContent = `${datos.ram}%`;
+    document.getElementById("medidor-cpu").style.setProperty(
+      "--nivel",
+      `${datos.cpu}%`,
+    );
+    document.getElementById("medidor-ram").style.setProperty(
+      "--nivel",
+      `${datos.ram}%`,
+    );
+    document.getElementById("telemetria-bateria").textContent =
+      datos.bateria === null ? "N/D" : `${datos.bateria}%`;
+    document.getElementById("bateria-panel").textContent =
+      datos.bateria === null ? "N/D" : `${datos.bateria}%`;
+    if (datos.bateria !== null) {
+      document.getElementById("medidor-bateria").style.setProperty(
+        "--nivel",
+        `${datos.bateria}%`,
+      );
+    }
+    document.getElementById("telemetria-temperatura").textContent =
+      datos.temperatura === null ? "N/D" : `${datos.temperatura}°C`;
+  } catch (error) {
+    document.getElementById("telemetria-cpu").textContent = "--";
+    document.getElementById("telemetria-ram").textContent = "--";
+    document.getElementById("cpu-panel").textContent = "--%";
+    document.getElementById("ram-panel").textContent = "--%";
+    document.getElementById("telemetria-bateria").textContent = "--";
+    document.getElementById("bateria-panel").textContent = "--";
+    document.getElementById("telemetria-temperatura").textContent = "--";
+    console.error("No se pudo actualizar la telemetría del computador.", error);
+  }
 }
 
 function cerrarConfirmacion() {
@@ -178,6 +389,7 @@ function conectar() {
   socket.onmessage = (evento) => {
     const datos = JSON.parse(evento.data);
     if (datos.tipo === "estado") cambiarEstado(datos.valor);
+    if (datos.tipo === "modo") cambiarModo(datos.valor);
     if (datos.tipo === "voz_sistema") {
       const etiquetas = {
         iniciando: "INICIANDO",
@@ -239,8 +451,96 @@ document.getElementById("proveedor").addEventListener("change", (evento) =>
   mandar("proveedor", { valor: evento.target.value }),
 );
 
+document.querySelectorAll(".modo[data-modo]").forEach((boton) => {
+  boton.addEventListener("click", () => mandar("modo", { valor: boton.dataset.modo }));
+});
+
 document.querySelectorAll("[data-atajo]").forEach((boton) => {
   boton.addEventListener("click", () => mandar("atajo", { valor: boton.dataset.atajo }));
+});
+
+function enviarComandoHud(texto) {
+  const comando = texto.trim();
+  if (!comando) return;
+  agregar("Tú", comando);
+  mandar("texto", { texto: comando });
+}
+
+document.getElementById("formulario-buscador").addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  const consulta = document.getElementById("buscador-integrado").value.trim();
+  if (!consulta) return;
+  const tipo = document.getElementById("tipo-busqueda").value;
+  enviarComandoHud(
+    tipo === "archivos"
+      ? `busca en el explorador de archivos un archivo llamado: ${consulta}`
+      : `busca ${consulta} en Google`,
+  );
+  document.getElementById("buscador-integrado").value = "";
+});
+
+document.getElementById("formulario-archivos").addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  const nombre = document.getElementById("buscador-archivos").value.trim();
+  if (!nombre) return;
+  enviarComandoHud(
+    evento.submitter?.value === "abrir"
+      ? `abre el archivo llamado: ${nombre}`
+      : `busca en el explorador de archivos un archivo llamado: ${nombre}`,
+  );
+});
+
+document.querySelectorAll("[data-musica]").forEach((boton) => {
+  boton.addEventListener("click", () => {
+    const ordenes = {
+      pausa: "pausa la música",
+      siguiente: "canción siguiente",
+      anterior: "canción anterior",
+    };
+    enviarComandoHud(ordenes[boton.dataset.musica]);
+  });
+});
+
+const blocNotas = document.getElementById("bloc-notas");
+const estadoNotas = document.getElementById("estado-notas");
+blocNotas.value = leerLocal("jarvis-bloc-notas", "");
+blocNotas.addEventListener("input", () => {
+  guardarLocal("jarvis-bloc-notas", blocNotas.value, estadoNotas);
+});
+
+document.getElementById("formulario-tarea").addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  const entrada = document.getElementById("nueva-tarea");
+  const texto = entrada.value.trim();
+  if (!texto) return;
+  tareas.push({ texto, completada: false });
+  guardarLocal("jarvis-tareas-hud", tareas);
+  entrada.value = "";
+  dibujarTareas();
+});
+
+document.getElementById("limpiar-tareas").addEventListener("click", () => {
+  tareas = tareas.filter((tarea) => !tarea.completada);
+  guardarLocal("jarvis-tareas-hud", tareas);
+  dibujarTareas();
+});
+
+document.getElementById("mes-anterior").addEventListener("click", () => {
+  fechaCalendario = new Date(
+    fechaCalendario.getFullYear(),
+    fechaCalendario.getMonth() - 1,
+    1,
+  );
+  dibujarCalendario();
+});
+
+document.getElementById("mes-siguiente").addEventListener("click", () => {
+  fechaCalendario = new Date(
+    fechaCalendario.getFullYear(),
+    fechaCalendario.getMonth() + 1,
+    1,
+  );
+  dibujarCalendario();
 });
 
 document.getElementById("confirmar-accion").addEventListener("click", () => {
@@ -263,6 +563,27 @@ function actualizarReloj() {
 
 window.setInterval(actualizarReloj, 1000);
 actualizarReloj();
+window.setInterval(() => {
+  document.getElementById("fecha").textContent = new Date().toLocaleDateString("es", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}, 60000);
+document.getElementById("fecha").textContent = new Date().toLocaleDateString("es", {
+  weekday: "short",
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+dibujarTareas();
+dibujarCalendario();
+window.addEventListener("online", actualizarRed);
+window.addEventListener("offline", actualizarRed);
+actualizarRed();
+actualizarTelemetria();
+window.setInterval(actualizarTelemetria, 5000);
 conectar();
 dibujarNucleo();
 agregar("Jarvis", "Sistemas en línea. Tu asistente está listo para recibir instrucciones.");

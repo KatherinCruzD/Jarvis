@@ -18,6 +18,12 @@ Asistente personal local en Python, con interfaz web servida por FastAPI y comun
 
 Di «Jarvis» seguido de una orden. Después de una orden reconocida, Jarvis acepta turnos siguientes sin repetir la palabra clave durante 20 segundos. Las conversaciones conservan hasta ocho mensajes previos mientras el turno anterior siga dentro de esa ventana. El indicador del HUD muestra el estado del micrófono y del asistente. Desactivar TTS silencia las respuestas, pero no deshabilita el micrófono.
 
+## HUD y modos
+
+El HUD muestra CPU, RAM, batería, estado de red, reloj y fecha. La temperatura indica «N/D» si Windows no ofrece sensores compatibles. Los modos **Escucha** y **Conversación** conservan la activación por «Jarvis»; Conversación indica la ventana de contexto de 20 segundos. **Privado** detiene la captura de audio y silencia las respuestas hasta volver a Escucha o Conversación.
+
+El panel incluye accesos de voz, control multimedia del reproductor activo, búsqueda web/archivos y widgets de notificaciones, calendario mensual, tareas y notas. Tareas y notas se guardan en el almacenamiento local del navegador y no se sincronizan con Windows, Ollama ni otros dispositivos. El calendario es una vista local; no está conectado a Google Calendar. El chat de texto se puede desplegar como canal secundario.
+
 Mientras Jarvis habla, decir «Jarvis» intenta cancelar la síntesis mediante la escucha del micrófono. Para una interrupción inmediata y que no dependa de que Whisper entienda la palabra sobre el audio de los altavoces, pulsa **F8** desde cualquier aplicación o el botón **DETENER** del HUD. Estas dos opciones solo silencian a Jarvis; no autorizan ni ejecutan órdenes. Después puedes hablar normalmente. Las órdenes de voz siguen requiriendo que Resemblyzer autorice tu voz. Whisper todavía puede equivocarse con ruido, eco o micrófonos lejanos.
 
 El diseño de voz conserva el modo manos libres de Jarvis y añade un control de interrupción independiente, inspirado en el patrón push-to-talk/interrupción de backtalk. No se incorpora el agente ni el motor de conversación de ese proyecto: backtalk está integrado con Claude Code, mientras que Jarvis mantiene Ollama/Gemini y su propia autenticación de voz. F8 en Windows solo consulta el estado de esa tecla; no registra ni guarda otras pulsaciones.
