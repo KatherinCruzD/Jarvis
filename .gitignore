@@ -2,6 +2,7 @@
 __pycache__/
 .env
 voz/mi_voz.npy
+voz/mi_voz_umbral.json
 secrets/google_oauth_client.json
 credentials.json
 token.json
