@@ -12,7 +12,7 @@ Asistente personal local en Python, con interfaz web servida por FastAPI y comun
 ```
 
    Resemblyzer se instala aparte con `--no-deps` porque, en Windows, una de sus dependencias intenta compilarse y suele fallar; las que sí necesita ya están en `requirements.txt`. El archivo `requirements-lock.txt` guarda las versiones exactas con las que Jarvis funcionó y sirve solo como referencia, no para instalar.
-2. Registra una muestra de voz con `python registrar_voz.py`.
+2. Registra tu voz con `python registrar_voz.py` (ocho frases cortas, en un lugar silencioso y con el micrófono que vas a usar). Después comprueba el oído con `python diagnostico_oido.py`.
 3. Inicia Jarvis con `python main.py`; el servidor abre el HUD en `127.0.0.1:8000`.
 4. El proveedor local requiere Ollama con `llama3.2:3b`. Gemini necesita `GEMINI_API_KEY` en `.env`.
 
@@ -55,6 +55,37 @@ Whisper usa `small`, CPU e `int8` de forma predeterminada. En equipos lentos pue
 Los recuerdos son optativos y solo se guardan cuando dices o escribes «recuerda que mi color favorito es azul». Pregunta «¿qué recuerdas de mi color favorito?» o «muéstrame mis recuerdos» para consultarlos; di «olvida mi color favorito es azul» para borrar una coincidencia exacta. Se guardan en una base SQLite local en `%LOCALAPPDATA%\Jarvis\memoria.sqlite3`, no se suben a Drive ni se envían a Gemini. Cuando el proveedor activo es Ollama local, los recuerdos que coinciden con la pregunta se pueden incluir como contexto; al usar Gemini no se busca ni se adjunta esa memoria.
 
 OpenJarvis organiza funciones como voz, motores locales, herramientas, memoria y evaluaciones en componentes separados. Jarvis adopta esa organización en pequeño y conserva sus propias funciones, su interfaz y Ollama/Gemini; no instala ni copia el framework entero.
+
+## Micrófono, candado de voz y diagnóstico
+
+Jarvis usa el micrófono predeterminado de Windows. Si tienes un micrófono externo, conéctalo y elige su número con esta orden (aparece cada dispositivo de entrada con su tipo de conexión; en general conviene uno marcado como MME):
+
+```
+python -c "import sounddevice as sd; [print(i, d['name'], '|', sd.query_hostapis(d['hostapi'])['name']) for i, d in enumerate(sd.query_devices()) if d['max_input_channels'] > 0]"
+```
+
+Luego añade el número a `.env` (por ejemplo `JARVIS_MIC_DEVICE=3`). **Cada vez que cambies de micrófono, vuelve a ejecutar `python registrar_voz.py`**, porque la huella de tu voz depende del micrófono con el que se grabó.
+
+`registrar_voz.py` guarda el promedio de ocho frases y calcula un umbral propio, que se guarda en `voz/mi_voz_umbral.json` (fuera de Git). Para ajustarlo a mano usa `JARVIS_UMBRAL_VOZ=0.70` en `.env`. `diagnostico_oido.py` graba tres pruebas y muestra, en cada una, el volumen, el parecido con tu voz, lo que entendió Whisper y si detectó la palabra «Jarvis».
+
+Solo para pruebas puedes desactivar el candado con `JARVIS_VERIFICAR_VOZ=0`; con eso Jarvis obedece a cualquier voz, así que quita esa línea al terminar.
+
+## Voz de Jarvis (tres motores)
+
+`voz/hablar.py` puede hablar con tres voces, elegidas con `JARVIS_VOZ` en `.env`:
+
+- `windows` (predeterminada): voz de Windows, sin internet. Se puede elegir con `JARVIS_VOZ_WINDOWS=Helena`.
+- `piper`: voz neuronal local, sin internet. Descarga una voz una sola vez (necesita internet) y se guarda fuera del repositorio:
+
+  ```
+  python -m piper.download_voices es_ES-davefx-medium --download-dir "$env:LOCALAPPDATA\Jarvis\voces"
+  ```
+
+  Otra voz se elige con `JARVIS_VOZ_PIPER=nombre`; `python -m piper.download_voices` lista las disponibles. Revisa la licencia de cada voz antes de redistribuirla.
+- `edge`: voz natural en línea mediante `edge-tts`, un servicio de Microsoft no oficial que puede dejar de funcionar. Se elige con `JARVIS_VOZ_EDGE=es-CO-GonzaloNeural`; `python -m edge_tts --list-voices` muestra las demás.
+- `auto`: usa `edge` si hay internet, si no `piper`, y si falla usa `windows`.
+
+Si un motor falla, Jarvis lo avisa en la terminal y usa el siguiente.
 
 ## Acciones y apagado
 

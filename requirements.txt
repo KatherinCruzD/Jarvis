@@ -16,3 +16,5 @@ yt-dlp==2026.8.19
 pywin32==312; sys_platform == "win32"
 psutil
 pillow
+piper-tts==1.8.0
+edge-tts==7.2.8

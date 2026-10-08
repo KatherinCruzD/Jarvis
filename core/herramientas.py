@@ -1,7 +1,8 @@
-from core import internet, utilidades
+from core import internet, utilidades, voces
+
 
 def manejar(texto: str):
-    for modulo in (utilidades, internet):
+    for modulo in (voces, utilidades, internet):
         respuesta = modulo.manejar(texto)
         if respuesta:
             return respuesta
